@@ -41,7 +41,7 @@ def keep_alive():
 # --- PHẦN LOGIC BOT ---
 
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh chỉnh giá: /gia 26,95"""
+    """Lệnh chỉnh giá và tự động ghim: /gia 26,95"""
     global current_usd_rate
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Bạn không có quyền đổi giá!")
@@ -57,9 +57,28 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if new_rate > 1000: new_rate = new_rate / 1000
         current_usd_rate = new_rate
         display_rate = "{:,.3f}".format(new_rate).rstrip('0').rstrip('.')
-        await update.message.reply_text(f"✅ Đã cập nhật giá mới: {display_rate} k")
-    except:
-        await update.message.reply_text("⚠️ Lỗi! Hãy nhập đúng. Ví dụ: /gia 27")
+        
+        # --- Tạo nội dung thông báo đẹp để ghim ---
+        announcement = (
+            f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ**\n"
+            f"--------------------------------\n"
+            f"💵 Giá USD hiện tại: **{display_rate}** VNĐ\n"
+            f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
+            f"👉 Mời anh em lên đơn!"
+        )
+        
+        # Gửi tin nhắn thông báo
+        sent_message = await update.message.reply_text(announcement, parse_mode='Markdown')
+        
+        # --- Thực hiện GHIM tin nhắn vừa gửi ---
+        try:
+            await sent_message.pin(notify_members=True) # notify_members=True để báo chuông cho mọi người
+        except Exception as e:
+            # Nếu lỗi (do chưa cấp quyền Admin) thì báo cho Admin biết
+            await update.message.reply_text("⚠️ Đã đổi giá nhưng KHÔNG THỂ GHIM.\nLý do: Bot chưa được cấp quyền Admin (Pin Messages) trong nhóm này.")
+
+    except ValueError:
+        await update.message.reply_text("⚠️ Lỗi! Hãy nhập đúng số. Ví dụ: /gia 27")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Kiểm tra tin nhắn riêng
