@@ -69,11 +69,11 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         display_rate = "{:,.3f}".format(new_rate).rstrip('0').rstrip('.')
         
         announcement = (
-            f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ**\n"
+            f"📣 **CẬP NHẬT TỶ GIÁ USD**\n"
             f"--------------------------------\n"
             f"💵 Giá USD hiện tại: **{display_rate}** VNĐ\n"
             f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
-            f"👉 Mời anh em lên đơn!"
+            f"👉 Chúc anh chị em giúp mọi người sở hữu được nhiều cổ phần nha"
         )
         
         try:
