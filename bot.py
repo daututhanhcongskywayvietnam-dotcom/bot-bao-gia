@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 TOKEN = '8442263369:AAHIDb-6VkOk6XZJgIPzlPcKz6izek49G-w'
 ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
+GROUP_ID = -1002946689229  # <--- Đã điền ID nhóm của bạn
 
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
@@ -24,7 +25,7 @@ NOI_DUNG_CK = """
 # Giá mặc định
 current_usd_rate = 27.0
 
-# --- PHẦN SERVER ẢO (GIÚP BOT ONLINE 24/7 TRÊN RENDER) ---
+# --- PHẦN SERVER ẢO (GIÚP BOT ONLINE 24/7) ---
 app_flask = Flask('')
 
 @app_flask.route('/')
@@ -41,8 +42,10 @@ def keep_alive():
 # --- PHẦN LOGIC BOT ---
 
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh chỉnh giá và tự động ghim: /gia 26,95"""
+    """Lệnh chỉnh giá: /gia 26,95 (Dùng trong tin nhắn riêng để đẩy ra nhóm)"""
     global current_usd_rate
+    
+    # Chỉ Admin mới được dùng
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Bạn không có quyền đổi giá!")
         return
@@ -58,24 +61,28 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current_usd_rate = new_rate
         display_rate = "{:,.3f}".format(new_rate).rstrip('0').rstrip('.')
         
-        # --- Tạo nội dung thông báo đẹp để ghim ---
+        # --- Tạo nội dung thông báo ---
         announcement = (
             f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ**\n"
             f"--------------------------------\n"
             f"💵 Giá USD hiện tại: **{display_rate}** VNĐ\n"
             f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
-            f"👉 Mời anh em lên đơn!"
+            f"👉 Mời anh chị em lên đơn!"
         )
         
-        # Gửi tin nhắn thông báo
-        sent_message = await update.message.reply_text(announcement, parse_mode='Markdown')
-        
-        # --- Thực hiện GHIM tin nhắn vừa gửi ---
+        # --- GỬI VÀO NHÓM ---
         try:
-            await sent_message.pin(notify_members=True) # notify_members=True để báo chuông cho mọi người
+            # Gửi tin nhắn vào nhóm (Dùng ID nhóm cố định)
+            sent_message = await context.bot.send_message(chat_id=GROUP_ID, text=announcement, parse_mode='Markdown')
+            
+            # Ghim tin nhắn đó
+            await sent_message.pin(notify_members=True)
+            
+            # Báo lại cho Admin biết là đã xong
+            await update.message.reply_text(f"✅ Đã đăng bài và ghim giá **{display_rate}** lên nhóm thành công!")
+            
         except Exception as e:
-            # Nếu lỗi (do chưa cấp quyền Admin) thì báo cho Admin biết
-            await update.message.reply_text("⚠️ Đã đổi giá nhưng KHÔNG THỂ GHIM.\nLý do: Bot chưa được cấp quyền Admin (Pin Messages) trong nhóm này.")
+            await update.message.reply_text(f"⚠️ Lỗi khi gửi vào nhóm: {e}\n(Hãy kiểm tra lại quyền Admin của Bot trong nhóm)")
 
     except ValueError:
         await update.message.reply_text("⚠️ Lỗi! Hãy nhập đúng số. Ví dụ: /gia 27")
@@ -94,7 +101,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode='Markdown')
         return 
     
-    # Xử lý tính tiền
+    # Xử lý tính tiền (Chỉ chạy trong nhóm hoặc Admin test)
     text = update.message.text.lower()
     keywords = ['mua', 'bán', 'đổi', 'check', 'giá', 'usd', 'đô', '$', 'rate']
     clean_text = text.replace('.', '').replace(',', '')
@@ -125,11 +132,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photo_path = os.path.join(script_dir, 'qr.jpg') 
 
             try:
+                # Nếu tin nhắn ở trong nhóm, gửi ảnh vào nhóm
+                target_chat_id = update.message.chat_id
                 if os.path.exists(photo_path):
                     with open(photo_path, 'rb') as photo:
-                        await update.message.reply_photo(photo=photo, caption=response, parse_mode='Markdown')
+                        await context.bot.send_photo(chat_id=target_chat_id, photo=photo, caption=response, parse_mode='Markdown')
                 else:
-                    await update.message.reply_text(response, parse_mode='Markdown')
+                    await context.bot.send_message(chat_id=target_chat_id, text=response, parse_mode='Markdown')
             except:
                 await update.message.reply_text(response, parse_mode='Markdown')
 
@@ -144,7 +153,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(response_rate, parse_mode='Markdown')
 
 def main():
-    keep_alive() # Chạy server ảo trước
+    keep_alive() 
     print("Bot đang chạy...")
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("gia", set_rate))
