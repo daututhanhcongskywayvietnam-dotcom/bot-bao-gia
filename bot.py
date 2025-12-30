@@ -9,7 +9,15 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 TOKEN = '8442263369:AAHIDb-6VkOk6XZJgIPzlPcKz6izek49G-w'
 ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
-GROUP_ID = -1002946689229  # <--- Đã điền ID nhóm của bạn
+GROUP_ID = -1002946689229 
+
+# --- DANH SÁCH TỪ KHÓA BỎ QUA (BOT SẼ IM LẶNG NẾU GẶP CÁC TỪ NÀY) ---
+# Bạn có thể thêm các từ khác vào đây, để trong dấu nháy đơn, cách nhau bằng dấu phẩy
+TU_KHOA_BO_QUA = [
+    'đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 
+    'đã chuyển', 'check giúp', 'kiểm tra giúp',
+    'done', 'xong rồi', 'uy tín', 'Tài khoản',
+]
 
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
@@ -25,7 +33,7 @@ NOI_DUNG_CK = """
 # Giá mặc định
 current_usd_rate = 27.0
 
-# --- PHẦN SERVER ẢO (GIÚP BOT ONLINE 24/7) ---
+# --- SERVER ẢO ---
 app_flask = Flask('')
 
 @app_flask.route('/')
@@ -39,13 +47,12 @@ def keep_alive():
     t = Thread(target=run_http)
     t.start()
 
-# --- PHẦN LOGIC BOT ---
+# --- LOGIC BOT ---
 
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh chỉnh giá: /gia 26,95 (Dùng trong tin nhắn riêng để đẩy ra nhóm)"""
+    """Lệnh chỉnh giá: /gia 26,95"""
     global current_usd_rate
     
-    # Chỉ Admin mới được dùng
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Bạn không có quyền đổi giá!")
         return
@@ -61,37 +68,30 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current_usd_rate = new_rate
         display_rate = "{:,.3f}".format(new_rate).rstrip('0').rstrip('.')
         
-        # --- Tạo nội dung thông báo ---
         announcement = (
             f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ**\n"
             f"--------------------------------\n"
             f"💵 Giá USD hiện tại: **{display_rate}** VNĐ\n"
             f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
-            f"👉 Mời anh chị em lên đơn!"
+            f"👉 Mời anh em lên đơn!"
         )
         
-        # --- GỬI VÀO NHÓM ---
         try:
-            # Gửi tin nhắn vào nhóm (Dùng ID nhóm cố định)
             sent_message = await context.bot.send_message(chat_id=GROUP_ID, text=announcement, parse_mode='Markdown')
-            
-            # Ghim tin nhắn đó
-            await sent_message.pin(notify_members=True)
-            
-            # Báo lại cho Admin biết là đã xong
+            await sent_message.pin() 
             await update.message.reply_text(f"✅ Đã đăng bài và ghim giá **{display_rate}** lên nhóm thành công!")
-            
         except Exception as e:
-            await update.message.reply_text(f"⚠️ Lỗi khi gửi vào nhóm: {e}\n(Hãy kiểm tra lại quyền Admin của Bot trong nhóm)")
+            await update.message.reply_text(f"⚠️ Đã gửi nhưng LỖI GHIM: {e}")
 
     except ValueError:
         await update.message.reply_text("⚠️ Lỗi! Hãy nhập đúng số. Ví dụ: /gia 27")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Kiểm tra tin nhắn riêng
     chat_type = update.message.chat.type 
     user_id = update.effective_user.id   
+    text = update.message.text.lower() # Chuyển tin nhắn về chữ thường để kiểm tra
     
+    # 1. KIỂM TRA TIN NHẮN RIÊNG (Đuổi khách về nhóm)
     if chat_type == 'private' and user_id != ADMIN_ID:
         msg = (
             f"⛔ **BOT KHÔNG BÁO GIÁ RIÊNG!**\n\n"
@@ -101,8 +101,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode='Markdown')
         return 
     
-    # Xử lý tính tiền (Chỉ chạy trong nhóm hoặc Admin test)
-    text = update.message.text.lower()
+    # 2. BỘ LỌC THÔNG MINH (QUAN TRỌNG) -> Nếu gặp câu chốt đơn thì IM LẶNG
+    # Nếu tin nhắn chứa bất kỳ từ nào trong danh sách TU_KHOA_BO_QUA -> Bot sẽ dừng lại ngay
+    if any(tu_khoa in text for tu_khoa in TU_KHOA_BO_QUA):
+        return # Dừng lại, không làm gì cả
+
+    # 3. XỬ LÝ TÍNH TIỀN
     keywords = ['mua', 'bán', 'đổi', 'check', 'giá', 'usd', 'đô', '$', 'rate']
     clean_text = text.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean_text) 
@@ -112,7 +116,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if match:
         amount = int(match.group()) 
         should_reply = False
+        # Nếu chỉ có số (VD: 1000) -> Trả lời
         if text.strip().replace('.', '').replace(',', '').replace('$', '').isdigit(): should_reply = True
+        # Nếu có số + từ khóa (VD: mua 1000 usd) -> Trả lời
         elif any(word in text for word in keywords): should_reply = True
 
         if should_reply:
@@ -132,7 +138,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photo_path = os.path.join(script_dir, 'qr.jpg') 
 
             try:
-                # Nếu tin nhắn ở trong nhóm, gửi ảnh vào nhóm
                 target_chat_id = update.message.chat_id
                 if os.path.exists(photo_path):
                     with open(photo_path, 'rb') as photo:
