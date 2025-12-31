@@ -4,6 +4,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from threading import Thread
 from flask import Flask
+from datetime import datetime
+import pytz
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -13,12 +15,12 @@ ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 
-# 👇 THÔNG TIN GOOGLE SHEET CỦA BẠN
+# 👇 THÔNG TIN GOOGLE SHEET
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1UOej4p1opA-6E3Zn7cn-ktQqum-RYJUyWHTuu-_tWV4/edit" 
 SHEET_NAME = "Bán SWC" 
 KEY_FILE = 'google_key.json'
 
-# 👇 LINK KÊNH TIN TỨC CỦA BẠN
+# 👇 LINK KÊNH TIN TỨC
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'xong rồi', 'done']
@@ -39,17 +41,23 @@ current_usd_rate = 26.95
 # --- KẾT NỐI GOOGLE SHEET ---
 def save_to_sheet(nguoi_chuyen, gmail_khach, so_usd):
     try:
+        # Lấy thời gian Việt Nam
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        ngay_hien_tai = datetime.now(vn_tz).strftime("%d/%m/%Y %H:%M:%S")
+
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_url(SHEET_URL).worksheet(SHEET_NAME)
-        # Ghi vào: Cột A(Trống), B(Người chuyển), C(Gmail), D(Số USD)
-        row = ["", nguoi_chuyen, gmail_khach, so_usd]
-        sheet.append_row(row)
-        return True
+
+        # Ghi vào 5 cột: A(Ngày), B(Người chuyển), C(Gmail), D(Số USD), E(Để trống để chạy công thức Sheet)
+        # value_input_option='USER_ENTERED' giúp các công thức sẵn có trong Sheet tự động tính toán
+        row = [ngay_hien_tai, nguoi_chuyen, gmail_khach, so_usd, ""]
+        sheet.append_row(row, value_input_option='USER_ENTERED')
+        return ngay_hien_tai
     except Exception as e:
         print(f"Lỗi Sheet: {e}")
-        return False
+        return None
 
 # --- SERVER ẢO GIỮ BOT ONLINE ---
 app_flask = Flask('')
@@ -61,7 +69,6 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 # --- LOGIC CÁC LỆNH ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gửi lời chào kèm 2 nút bấm"""
     keyboard = [
         [InlineKeyboardButton("🇻🇳 CÀI ĐẶT TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
         [InlineKeyboardButton("📢 XEM KÊNH TIN TỨC 🇻🇳", url=LINK_CHANNEL)]
@@ -74,7 +81,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, reply_markup=reply_markup)
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Chào mừng người mới vào nhóm kèm 2 nút bấm"""
     for member in update.message.new_chat_members:
         if member.is_bot: continue
         keyboard = [
@@ -108,7 +114,7 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Sai cú pháp. VD: /gia 27")
 
 async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_name = update.effective_user.first_name
+    user_name = update.effective_user.full_name # Lấy tên đầy đủ
     try:
         if len(context.args) < 2:
             await update.message.reply_text("⚠️ Cú pháp: `/chot [Số USD] [Gmail]`\nVí dụ: `/chot 500 abc@gmail.com`", parse_mode='Markdown')
@@ -118,12 +124,20 @@ async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gmail = context.args[1]
         await update.message.reply_text("⏳ Đang ghi vào Google Sheet...")
         
-        if save_to_sheet(user_name, gmail, so_usd):
-            await update.message.reply_text(f"✅ **ĐÃ GHI SỔ THÀNH CÔNG**\n👤 Telegram: {user_name}\n📧 Gmail: {gmail}\n💵 Số tiền: {so_usd} USD", parse_mode='Markdown')
+        time_result = save_to_sheet(user_name, gmail, so_usd)
+        if time_result:
+            await update.message.reply_text(
+                f"✅ **ĐÃ GHI SỔ THÀNH CÔNG**\n"
+                f"📅 Ngày: {time_result}\n"
+                f"👤 Telegram: {user_name}\n"
+                f"📧 Gmail: {gmail}\n"
+                f"💵 Số tiền: {so_usd} USD", 
+                parse_mode='Markdown'
+            )
         else:
             await update.message.reply_text("❌ Lỗi kết nối Google Sheet!")
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Lỗi: {e}")
+        await update.message.reply_text(f"⚠️ Lỗi hệ thống: {e}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_type = update.message.chat.type
@@ -135,9 +149,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
             [InlineKeyboardButton("📢 XEM KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
-        await update.message.reply_text(f"⛔ **BOT KHÔNG BÁO GIÁ RIÊNG!**\n\n"
+        await update.message.reply_text(
+            f"⛔ **BOT KHÔNG BÁO GIÁ RIÊNG!**\n\n"
             f"Để đảm bảo an toàn và uy tín, mời bạn vào nhóm chung để giao dịch:\n"
-            f"👉 **Tham gia ngay:**{LINK_NHOM}**", reply_markup=InlineKeyboardMarkup(keyboard))
+            f"👉 **Tham gia ngay:** {LINK_NHOM}", 
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
         return
 
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
