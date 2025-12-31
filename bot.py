@@ -8,9 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- CẤU HÌNH ---
-# Dán Token mới của bạn vào giữa hai dấu nháy đơn bên dưới
-TOKEN = '8442263369:AAFuWJk6yM98q8wIZWxkEMzvZ7-hKw9Be_Y' 
-
+TOKEN = '8442263369:AAFuWJk6yM98q8wIZWxkEMzvZ7-hKw9Be_Y' # Token chuẩn của bạn
 ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
@@ -20,7 +18,7 @@ LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734.838`
+✅ **SỐ TÀI KHOẢN:** `734838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
 
@@ -29,7 +27,10 @@ NOI_DUNG_CK = """
 """
 
 current_usd_rate = 27.0
-TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done']
+# Những từ khóa Bot sẽ bỏ qua (không trả lời)
+TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done', 'ok']
+# Những từ khóa khách hỏi giá (Bot sẽ trả lời tỷ giá)
+TU_KHOA_HOI_GIA = ['giá', 'gia', 'rate', 'tỷ giá', 'ty gia', 'bao nhiêu', 'nhiêu']
 
 # --- SERVER ẢO GIỮ BOT ONLINE ---
 app_flask = Flask('')
@@ -47,7 +48,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text(
         "👋 Chào mừng bạn! Nhắn số lượng USD để nhận báo giá.\n\n"
-        "👉 (Tính năng ghi sổ đang bảo trì, vui lòng nhắn tin trực tiếp cho Admin).",
+        "👉 Ví dụ: Nhắn `1000` hoặc `500` Bot sẽ tính tiền ngay.",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -75,8 +76,11 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
+    
+    # 1. Nếu gặp từ khóa bỏ qua -> Im lặng
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
     
+    # 2. ƯU TIÊN: Tìm số trong tin nhắn để tính tiền
     clean_text = text.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean_text)
     
@@ -96,16 +100,3 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text(resp, parse_mode='Markdown')
         except:
-            await update.message.reply_text(resp, parse_mode='Markdown')
-
-def main():
-    keep_alive()
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("gia", set_rate))
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
