@@ -90,8 +90,8 @@ async def update_rate_logic(context, new_rate):
     
     # Nội dung tin nhắn ghim mới
     msg_text = (
-        f"✨ **THÔNG BÁO TỶ GIÁ MỚI** ✨\n"
-        f"-----------------------------\n"
+        f"✨ **CẬP NHẬT TỶ GIÁ MỚI** ✨\n"
+        f"--------------\n"
         f"🌱 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
         f"❤️ Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
     )
