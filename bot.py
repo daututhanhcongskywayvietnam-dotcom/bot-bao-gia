@@ -1,7 +1,5 @@
 import re 
 import os 
-# import gspread  <-- Tạm tắt
-# from oauth2client.service_account import ServiceAccountCredentials <-- Tạm tắt
 from threading import Thread
 from flask import Flask
 from datetime import datetime
@@ -15,11 +13,6 @@ ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
-
-# THÔNG TIN GOOGLE SHEET (TẠM TẮT ĐỂ KHÔNG BỊ LỖI KEY)
-# SHEET_URL = "..." 
-# SHEET_NAME = "Bán SWC" 
-# KEY_FILE = 'google_key.json'
 
 # NỘI DUNG CHUYỂN KHOẢN
 NOI_DUNG_CK = """
@@ -36,14 +29,7 @@ NOI_DUNG_CK = """
 current_usd_rate = 27.0
 TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done']
 
-# --- (TẠM TẮT KẾT NỐI SHEET) ---
-# def save_to_sheet(nguoi_chuyen, gmail_khach, so_usd):
-#     try:
-#         ... (Code cũ) ...
-#     except Exception as e:
-#         return None, None
-
-# --- SERVER ẢO GIỮ BOT ONLINE ---
+# --- SERVER ẢO GIỮ BOT ONLINE (QUAN TRỌNG CHO RENDER) ---
 app_flask = Flask('')
 @app_flask.route('/')
 def home(): return "Bot đang hoạt động 100%!"
