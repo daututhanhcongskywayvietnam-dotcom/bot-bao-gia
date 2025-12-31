@@ -8,7 +8,9 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- CẤU HÌNH ---
-TOKEN = '8442263369:AAFuWJk6yM98q8wIZWxkEMzvZ7-hKw9Be_Y'
+# Dán Token mới của bạn vào giữa hai dấu nháy đơn bên dưới
+TOKEN = '8442263369:AAFuWJk6yM98q8wIZWxkEMzvZ7-hKw9Be_Y' 
+
 ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
@@ -18,7 +20,7 @@ LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734838`
+✅ **SỐ TÀI KHOẢN:** `734.838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
 
@@ -29,7 +31,7 @@ NOI_DUNG_CK = """
 current_usd_rate = 27.0
 TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done']
 
-# --- SERVER ẢO GIỮ BOT ONLINE (QUAN TRỌNG) ---
+# --- SERVER ẢO GIỮ BOT ONLINE ---
 app_flask = Flask('')
 @app_flask.route('/')
 def home(): return "Bot đang hoạt động 100%!"
@@ -40,7 +42,7 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
+        [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
         [InlineKeyboardButton("📢 KÊNH TIN TỨC CHÍNH THỨC 🇻🇳", url=LINK_CHANNEL)]
     ]
     await update.message.reply_text(
