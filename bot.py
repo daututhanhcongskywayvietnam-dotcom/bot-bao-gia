@@ -51,7 +51,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Khách thường thì đuổi về nhóm
             keyboard = [
                 [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
-                [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
+                [InlineKeyboardButton("🇻🇳 BẤM ĐỂ CÀI NGÔN NGỮ TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
                 [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
             ]
             await update.message.reply_text(
@@ -79,7 +79,7 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if member.is_bot: continue
         
         keyboard = [
-            [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY 🇻🇳", url="https://t.me/setlanguage/vi-beta")],
+            [InlineKeyboardButton("🇻🇳  BẤM ĐỂ CÀI TIẾNG VIỆT🇻🇳", url="https://t.me/setlanguage/vi-beta")],
             [InlineKeyboardButton("📢 KÊNH TIN TỨC CHÍNH THỨC", url=LINK_CHANNEL)]
         ]
         
@@ -145,7 +145,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # B. Nếu là KHÁCH nhắn riêng -> Đuổi về nhóm
         keyboard = [
             [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
-            [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT🇻🇳", url="https://t.me/setlanguage/vi-beta")],
+            [InlineKeyboardButton("🇻🇳 BẤM CÀI TIẾNG VIỆT🇻🇳", url="https://t.me/setlanguage/vi-beta")],
             [InlineKeyboardButton("📢 KÊNH TIN TỨC SWC ", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
