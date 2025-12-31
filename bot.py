@@ -1,7 +1,7 @@
 import re 
 import os 
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+# import gspread  <-- Tạm tắt
+# from oauth2client.service_account import ServiceAccountCredentials <-- Tạm tắt
 from threading import Thread
 from flask import Flask
 from datetime import datetime
@@ -16,10 +16,10 @@ LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1"
 GROUP_ID = -1002946689229 
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
-# THÔNG TIN GOOGLE SHEET
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1UOej4p1opA-6E3Zn7cn-ktQqum-RYJUyWHTuu-_tWV4/edit" 
-SHEET_NAME = "Bán SWC" 
-KEY_FILE = 'google_key.json'
+# THÔNG TIN GOOGLE SHEET (TẠM TẮT ĐỂ KHÔNG BỊ LỖI KEY)
+# SHEET_URL = "..." 
+# SHEET_NAME = "Bán SWC" 
+# KEY_FILE = 'google_key.json'
 
 # NỘI DUNG CHUYỂN KHOẢN
 NOI_DUNG_CK = """
@@ -36,39 +36,12 @@ NOI_DUNG_CK = """
 current_usd_rate = 27.0
 TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done']
 
-# --- KẾT NỐI GOOGLE SHEET ---
-def save_to_sheet(nguoi_chuyen, gmail_khach, so_usd):
-    try:
-        # 1. Lấy ngày VN (Chỉ Ngày/Tháng/Năm)
-        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
-        ngay_hien_tai = datetime.now(vn_tz).strftime("%d/%m/%Y")
-
-        # 2. Tính toán tiền VNĐ (Số USD * Tỷ giá * 1000)
-        val_usd = float(so_usd)
-        thanh_tien_vnd = int(val_usd * current_usd_rate * 1000)
-
-        # 3. Kết nối API
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
-        client = gspread.authorize(creds)
-        sheet = client.open_by_url(SHEET_URL).worksheet(SHEET_NAME)
-
-        # 4. Định dạng khớp công thức (Cột D có đuôi 'usd')
-        so_usd_formatted = f"{so_usd}usd"
-        row = [ngay_hien_tai, nguoi_chuyen, gmail_khach, so_usd_formatted, thanh_tien_vnd]
-        
-        # 5. TÌM HÀNG TIẾP THEO (Dựa trên cột A) ĐỂ TRÁNH NHẢY CỘT F
-        all_dates = sheet.col_values(1)
-        next_row = len(all_dates) + 1
-        target_range = f"A{next_row}:E{next_row}"
-        
-        # Ghi chính xác vào dải A đến E
-        sheet.update(target_range, [row], value_input_option='USER_ENTERED')
-        
-        return ngay_hien_tai, thanh_tien_vnd
-    except Exception as e:
-        print(f"Lỗi Sheet: {e}")
-        return None, None
+# --- (TẠM TẮT KẾT NỐI SHEET) ---
+# def save_to_sheet(nguoi_chuyen, gmail_khach, so_usd):
+#     try:
+#         ... (Code cũ) ...
+#     except Exception as e:
+#         return None, None
 
 # --- SERVER ẢO GIỮ BOT ONLINE ---
 app_flask = Flask('')
@@ -80,19 +53,17 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 # --- LOGIC PHẢN HỒI ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gửi nút cài Tiếng Việt và Kênh tin tức"""
     keyboard = [
         [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
         [InlineKeyboardButton("📢 KÊNH TIN TỨC CHÍNH THỨC 🇻🇳", url=LINK_CHANNEL)]
     ]
     await update.message.reply_text(
         "👋 Chào mừng bạn! Nhắn số lượng USD để nhận báo giá.\n\n"
-        "👉 Sử dụng lệnh `/chot [Số USD] [Gmail]` để ghi sổ.",
+        "👉 (Tính năng ghi sổ đang bảo trì, vui lòng nhắn tin trực tiếp cho Admin).",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tự động chào mừng người mới vào nhóm"""
     for member in update.message.new_chat_members:
         if member.is_bot: continue
         keyboard = [[InlineKeyboardButton("📢 THEO DÕI TIN TỨC 🇻🇳", url=LINK_CHANNEL)]]
@@ -103,7 +74,6 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin cập nhật tỷ giá và ghim"""
     global current_usd_rate
     if update.effective_user.id != ADMIN_ID: return
     try:
@@ -115,33 +85,10 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Đã ghim giá mới: {current_usd_rate}")
     except: pass
 
-async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh chốt đơn vào Sheet"""
-    user_name = update.effective_user.full_name
-    try:
-        if len(context.args) < 2:
-            await update.message.reply_text("⚠️ Cú pháp: `/chot [Số USD] [Gmail]`")
-            return
-        so_usd, gmail = context.args[0], context.args[1]
-        time_res, vnd_res = save_to_sheet(user_name, gmail, so_usd)
-        if time_res:
-            vnd_display = "{:,.0f}".format(vnd_res).replace(',', '.')
-            await update.message.reply_text(
-                f"✅ **GHI SỔ THÀNH CÔNG**\n"
-                f"📅 Ngày: {time_res}\n"
-                f"👤 Khách: {user_name}\n"
-                f"💵 Số tiền: {so_usd} USD\n"
-                f"💰 Thành tiền: {vnd_display} VNĐ", 
-                parse_mode='Markdown'
-            )
-    except: await update.message.reply_text("❌ Lỗi! Hãy gõ: /chot 100 abc@gmail.com")
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Báo giá tự động (Nhạy bén cả tin nhắn riêng và nhóm)"""
     text = update.message.text.lower()
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
     
-    # Tìm số trong tin nhắn
     clean_text = text.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean_text)
     
@@ -168,7 +115,6 @@ def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("gia", set_rate))
-    app.add_handler(CommandHandler("chot", chot_don))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
