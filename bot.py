@@ -13,9 +13,9 @@ ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 
-# 👇 KIỂM TRA LẠI LINK GOOGLE SHEET CỦA BẠN TẠI ĐÂY
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1X_T8p46p5Yh_Q0v2S6vY7Y_o2E7_L8Z8Z8Z8Z8Z8Z8/edit" 
-SHEET_NAME = "Trang tính1" 
+# 👇 ĐÃ CẬP NHẬT THEO LINK VÀ TÊN TRANG TÍNH CỦA BẠN
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1UOej4p1opA-6E3Zn7cn-ktQqum-RYJUyWHTuu-_tWV4/edit" 
+SHEET_NAME = "Bán SWC" 
 
 KEY_FILE = 'google_key.json'
 
