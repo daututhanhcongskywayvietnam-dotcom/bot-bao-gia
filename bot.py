@@ -146,10 +146,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
             [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT🇻🇳", url="https://t.me/setlanguage/vi-beta")],
-            [InlineKeyboardButton("📢 KÊNH TIN TỨC🇻🇳 ", url=LINK_CHANNEL)]
+            [InlineKeyboardButton("📢 KÊNH TIN TỨC SWC ", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
-            "⚠️ **THÔNG BÁO**\n\nBot **KHÔNG** làm việc qua tin nhắn riêng.\nMời bạn vào nhóm chung:",
+            "⚠️ **THÔNG BÁO**\n\n **Để đảm bảo an toàn và uy tín, mời bạn vào nhóm chung để giao dịch**\nMời bạn vào nhóm chung:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
