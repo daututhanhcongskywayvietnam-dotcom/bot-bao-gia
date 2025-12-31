@@ -37,10 +37,13 @@ TU_KHOA_BO_QUA = [
 ]
 
 # Từ khóa xác nhận của nhân viên (Để bot chúc mừng)
-TU_KHOA_NHAN_VIEN = ['đã bank', 'check giúp', 'done', 'ok', 'bill', 'biên lai', 'đã chuyển', 'ck xong', 'đã ck', 'chuyển khoản', 'gmail', 'email', '@', 'gửi rồi', 'đã gửi']
+TU_KHOA_NHAN_VIEN = ['nhận được đủ', 'đã nhận đủ', 'nhận đủ usd', 'nhận đủ tiền', 'nhan du']
 
-# Từ khóa khách hỏi giá (để Bot trả lời hướng dẫn)
-TU_KHOA_HOI_GIA = ['giá', 'gia', 'đô', ' đô hôm nay','gia do', 'rate', 'tỷ giá','Xem giá', 'báo giá' 'giá đô',,'ty gia', 'bao nhiêu', 'nhiêu']
+# Từ khóa khách hỏi giá (ĐÃ SỬA LỖI CÚ PHÁP Ở ĐÂY)
+TU_KHOA_HOI_GIA = [
+    'giá', 'gia', 'rate', 'tỷ giá', 'ty gia', 'bao nhiêu', 'nhiêu',
+    'đô', 'đô hôm nay', 'gia do', 'xem giá', 'báo giá', 'giá đô'
+]
 
 # --- CÁC BIẾN LƯU ID TIN NHẮN (ĐỂ TỰ XÓA TIN CŨ) ---
 last_welcome_message_id = None  # Lưu tin chào mừng
@@ -62,7 +65,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{current_usd_rate}**.\nSếp cứ nhắn giá mới (VD: `27.5`) em sẽ tự đổi, tự xóa giá cũ và ghim giá mới nhé.", parse_mode='Markdown')
         else:
             keyboard = [
-                [InlineKeyboardButton("👥 VÀO NHÓM TRAO ĐỔI NGAY", url=LINK_NHOM)],
+                [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
                 [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
                 [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
             ]
@@ -95,7 +98,7 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         msg = await update.message.reply_text(
             f"👋 Chào mừng **Sếp {member.first_name}** đã gia nhập nhóm!\n\n"
             f"❤️ Kính chúc Sếp luôn dồi dào sức khoẻ và thịnh vượng tài chính.\n\n"
-            f"👉 Sếp hãy ấn nút dưới đây để cài Tiếng Việt cho dễ dùng nhé 👇", 
+            f"👉 Sếp hãy ấn nút dưới đây để cài Tiếng Việt cho dễ dùng trên ứng dụng nhé 👇", 
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
@@ -176,7 +179,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- 2. XỬ LÝ TRONG NHÓM ---
 
     # A. CHECK TIN NHẮN NHÂN VIÊN (CHÚC MỪNG)
-    # Kiểm tra xem có từ khóa nhân viên xác nhận không (Vd: nhận đủ, nhận được đủ)
     if any(kw in text for kw in TU_KHOA_NHAN_VIEN):
         # Xóa tin chúc mừng cũ (nếu có)
         if last_congrats_message_id:
@@ -218,7 +220,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(resp, parse_mode='Markdown')
         return
 
-    # D. KHÁCH HỎI GIÁ (Sếp/Em)
+    # D. KHÁCH HỎI GIÁ
     if any(kw in text for kw in TU_KHOA_HOI_GIA):
         rate_display = "{:,.2f}".format(current_usd_rate).replace('.', ',')
         msg = (
