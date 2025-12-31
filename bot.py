@@ -171,7 +171,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
-            "⛔ **THÔNG BÁO VỚI SẾP**\n\nĐể đảm bảo an toàn và uy tín,em **KHÔNG** làm việc qua tin nhắn riêng ạ.\nEm mời Sếp vào nhóm chung để giao dịch Sếp nhé. 👇 👇 👇  Tham gia ngay:",
+            "⛔ **THÔNG BÁO VỚI SẾP**\n\nĐể đảm bảo an toàn và uy tín,em **KHÔNG** làm việc qua tin nhắn riêng ạ.\nEm mời Sếp vào nhóm chung để giao dịch Sếp nhé.___________👇 👇 👇 ",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
