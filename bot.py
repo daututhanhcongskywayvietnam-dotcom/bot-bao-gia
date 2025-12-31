@@ -29,7 +29,7 @@ NOI_DUNG_CK = """
 current_usd_rate = 27.0
 TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done']
 
-# --- SERVER ẢO GIỮ BOT ONLINE (QUAN TRỌNG CHO RENDER) ---
+# --- SERVER ẢO GIỮ BOT ONLINE ---
 app_flask = Flask('')
 @app_flask.route('/')
 def home(): return "Bot đang hoạt động 100%!"
