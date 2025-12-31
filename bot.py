@@ -135,7 +135,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
             [InlineKeyboardButton("📢 XEM KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
-        await update.message.reply_text(f"⛔ Vui lòng vào nhóm để xem giá: {LINK_NHOM}", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(f"⛔ **BOT KHÔNG BÁO GIÁ RIÊNG!**\n\n"
+            f"Để đảm bảo an toàn và uy tín, mời bạn vào nhóm chung để giao dịch:\n"
+            f"👉 **Tham gia ngay:**{LINK_NHOM}**", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
