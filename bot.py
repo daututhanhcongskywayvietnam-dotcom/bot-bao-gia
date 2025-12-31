@@ -13,11 +13,13 @@ ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 
-# 👇 ĐÃ CẬP NHẬT THEO LINK VÀ TÊN TRANG TÍNH CỦA BẠN
+# 👇 THÔNG TIN GOOGLE SHEET CỦA BẠN
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1UOej4p1opA-6E3Zn7cn-ktQqum-RYJUyWHTuu-_tWV4/edit" 
 SHEET_NAME = "Bán SWC" 
-
 KEY_FILE = 'google_key.json'
+
+# 👇 LINK KÊNH TIN TỨC CỦA BẠN
+LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'xong rồi', 'done']
 
@@ -27,11 +29,11 @@ NOI_DUNG_CK = """
 ✅ **SỐ TÀI KHOẢN:** `734.838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
+
 ❌ **TUYỆT ĐỐI KHÔNG GHI:** Mua bán, USD, Tiền hàng...
 📌 **Lưu ý quan trọng:** Chỉ giao dịch tài khoản chính chủ. Người mua chịu trách nhiệm 100% về nguồn tiền nếu xảy ra vấn đề pháp lý.
 """
 
-# Giá mặc định (Bạn có thể sửa số này thành giá thị trường hiện tại)
 current_usd_rate = 26.95
 
 # --- KẾT NỐI GOOGLE SHEET ---
@@ -59,20 +61,34 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 # --- LOGIC CÁC LỆNH ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh /start hoặc /tiengviet"""
-    keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")]]
+    """Gửi lời chào kèm 2 nút bấm"""
+    keyboard = [
+        [InlineKeyboardButton("🇻🇳 CÀI ĐẶT TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
+        [InlineKeyboardButton("📢 XEM KÊNH TIN TỨC 🇻🇳", url=LINK_CHANNEL)]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("👋 Chào mừng bạn! Bấm nút dưới để cài Tiếng Việt cho Telegram nhé 👇", reply_markup=reply_markup)
+    msg = (
+        f"👋 Chào mừng bạn đến với hệ thống hỗ trợ!\n\n"
+        f"👉 Bấm nút bên dưới để cài Tiếng Việt hoặc theo dõi kênh tin tức mới nhất của chúng tôi."
+    )
+    await update.message.reply_text(msg, reply_markup=reply_markup)
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Chào mừng người mới vào nhóm"""
+    """Chào mừng người mới vào nhóm kèm 2 nút bấm"""
     for member in update.message.new_chat_members:
         if member.is_bot: continue
-        keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")]]
-        await update.message.reply_text(f"👋 Chào {member.first_name}! Chào mừng bạn đã vào nhóm.\nBấm nút dưới để cài giao diện Tiếng Việt nhé 👇", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [
+            [InlineKeyboardButton("🇻🇳 CÀI ĐẶT TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
+            [InlineKeyboardButton("📢 XEM KÊNH TIN TỨC 🇻🇳", url=LINK_CHANNEL)]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            f"👋 Chào {member.first_name}! Chào mừng bạn đã vào nhóm.\n\n"
+            f"Để thuận tiện, bạn hãy cài đặt Tiếng Việt và tham gia Kênh tin tức chính thức bên dưới nhé 👇",
+            reply_markup=reply_markup
+        )
 
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh /gia dành cho Admin"""
     global current_usd_rate
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Bạn không có quyền!")
@@ -92,7 +108,6 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Sai cú pháp. VD: /gia 27")
 
 async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh /chot [Số USD] [Gmail]"""
     user_name = update.effective_user.first_name
     try:
         if len(context.args) < 2:
@@ -111,21 +126,20 @@ async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Lỗi: {e}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý báo giá tự động"""
     chat_type = update.message.chat.type
     user_id = update.effective_user.id
     text = update.message.text.lower()
 
-    # Nhắn tin riêng
     if chat_type == 'private' and user_id != ADMIN_ID:
-        keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]]
+        keyboard = [
+            [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
+            [InlineKeyboardButton("📢 XEM KÊNH TIN TỨC", url=LINK_CHANNEL)]
+        ]
         await update.message.reply_text(f"⛔ Vui lòng vào nhóm để xem giá: {LINK_NHOM}", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
-    # Lọc từ khóa bỏ qua
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
 
-    # Tính tiền
     keywords = ['mua', 'bán', 'đổi', 'giá', 'usd', '$', 'check']
     clean_text = text.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean_text)
