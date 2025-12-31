@@ -98,10 +98,11 @@ async def update_rate_logic(context, new_rate):
     current_usd_rate = new_rate
     
     msg_text = (
-        f"✨ **THÔNG BÁO TỶ GIÁ MỚI** ✨\n"
-        f"-----------------------------\n"
-        f"🌱 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
-        f"❤️ Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
+        f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ** \n"
+        f"-----------------\n"
+        f"💵 Giá USD hiện tại:**{current_usd_rate} VNĐ**\n\n"
+        f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
+        f"👉  Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
     )
     
     sent_msg = await context.bot.send_message(chat_id=GROUP_ID, text=msg_text, parse_mode='Markdown')
