@@ -9,7 +9,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # --- CẤU HÌNH ---
 TOKEN = '8442263369:AAFuWJk6yM98q8wIZWxkEMzvZ7-hKw9Be_Y' # Token của bạn
-ADMIN_ID = 507318519  # ID của bạn (Để Bot biết ai là Sếp)
+ADMIN_ID = 507318519  # ID của bạn
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
@@ -44,14 +44,12 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == "private":
-        # Nếu là Admin thì chào kiểu Sếp
         if update.effective_user.id == ADMIN_ID:
-            await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại là: **{current_usd_rate}**.\nSếp cứ nhắn giá mới vào đây (VD: `27.5`) em sẽ tự đổi nhé.", parse_mode='Markdown')
+            await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{current_usd_rate}**.\nSếp cứ nhắn giá mới (VD: `27.5`) em sẽ tự ghim lên nhóm kèm lời chúc nhé.", parse_mode='Markdown')
         else:
-            # Khách thường thì đuổi về nhóm
             keyboard = [
                 [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
-                [InlineKeyboardButton("🇻🇳 BẤM ĐỂ CÀI NGÔN NGỮ TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
+                [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
                 [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
             ]
             await update.message.reply_text(
@@ -66,48 +64,42 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global last_welcome_message_id
-    
-    # 1. Xóa tin chào cũ (nếu có)
     if last_welcome_message_id:
         try:
             await context.bot.delete_message(chat_id=update.message.chat_id, message_id=last_welcome_message_id)
-        except:
-            pass # Lỡ tin cũ bị xóa rồi thì bỏ qua
+        except: pass
 
-    # 2. Gửi tin chào mới
     for member in update.message.new_chat_members:
         if member.is_bot: continue
-        
         keyboard = [
-            [InlineKeyboardButton("🇻🇳  BẤM ĐỂ CÀI TIẾNG VIỆT🇻🇳", url="https://t.me/setlanguage/vi-beta")],
+            [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
             [InlineKeyboardButton("📢 KÊNH TIN TỨC CHÍNH THỨC", url=LINK_CHANNEL)]
         ]
-        
         msg = await update.message.reply_text(
             f"👋 Chào mừng **{member.first_name}** đã gia nhập nhóm!\n\n"
             f"👉 Bạn hãy ấn nút dưới đây để cài Tiếng Việt cho dễ dùng nhé 👇", 
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
-        
-        # Lưu lại ID tin nhắn vừa gửi để lần sau xóa
         last_welcome_message_id = msg.message_id
 
-# Hàm cập nhật giá (Dùng chung cho cả lệnh /gia và nhắn tin riêng của Admin)
+# --- HÀM CẬP NHẬT GIÁ (ĐÃ SỬA LỜI CHÚC THIỆN CẢM) ---
 async def update_rate_logic(context, new_rate):
     global current_usd_rate
     current_usd_rate = new_rate
     
-    msg_text = f"📣 **THÔNG BÁO TỶ GIÁ MỚI**\n---------------\n💵 Giá USD hiện tại: **{current_usd_rate}** VNĐ"
+    # Nội dung tin nhắn ghim mới
+    msg_text = (
+        f"✨ **THÔNG BÁO TỶ GIÁ MỚI** ✨\n"
+        f"-----------------------------\n"
+        f"🌱 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
+        f"❤️ Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
+    )
     
-    # Gửi vào nhóm
     sent_msg = await context.bot.send_message(chat_id=GROUP_ID, text=msg_text, parse_mode='Markdown')
-    
-    # Ghim tin nhắn
     try:
         await sent_msg.pin(disable_notification=False)
-    except:
-        pass # Nếu lỗi ghim thì thôi
+    except: pass
     return sent_msg
 
 async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,46 +114,41 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
 
-    # --- TRƯỜNG HỢP 1: TIN NHẮN RIÊNG (PRIVATE) ---
+    # 1. ADMIN NHẮN RIÊNG -> CẬP NHẬT GIÁ
     if update.message.chat.type == "private":
-        # A. Nếu là ADMIN nhắn số -> Cập nhật giá
         if update.effective_user.id == ADMIN_ID:
             clean_text = text.replace(',', '.')
             match = re.search(r'\d+(\.\d+)?', clean_text)
             if match:
                 val = float(match.group())
-                # Logic thông minh: Nếu số < 100 (VD: 26.95) thì là tỷ giá. Nếu số to quá thì thôi.
                 if 20 < val < 30: 
                     await update_rate_logic(context, val)
-                    await update.message.reply_text(f"✅ OK Sếp! Đã báo giá **{val}** vào nhóm và ghim rồi ạ.")
+                    await update.message.reply_text(f"✅ Đã báo giá **{val}** vào nhóm kèm lời chúc rồi Sếp nhé!")
                     return
-                elif val > 1000: # Admin lỡ tay copy số to
+                elif val > 1000:
                     await update.message.reply_text("⚠️ Số to quá Sếp ơi, có phải tỷ giá không ạ?")
                     return
-            
-            await update.message.reply_text("Sếp nhắn số (ví dụ: `27` hoặc `26.95`) để em đổi giá nhé.", parse_mode='Markdown')
+            await update.message.reply_text("Sếp nhắn tỷ giá (ví dụ: `27` hoặc `26.95`) em đổi ngay.", parse_mode='Markdown')
             return
 
-        # B. Nếu là KHÁCH nhắn riêng -> Đuổi về nhóm
+        # KHÁCH NHẮN RIÊNG -> ĐUỔI VỀ NHÓM
         keyboard = [
             [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
-            [InlineKeyboardButton("🇻🇳 BẤM CÀI TIẾNG VIỆT🇻🇳", url="https://t.me/setlanguage/vi-beta")],
-            [InlineKeyboardButton("📢 KÊNH TIN TỨC SWC ", url=LINK_CHANNEL)]
+            [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
-            "⚠️ **THÔNG BÁO**\n\n **Để đảm bảo an toàn và uy tín, mời bạn vào nhóm chung để giao dịch**\nMời bạn vào nhóm chung:",
+            "⛔ **BOT KHÔNG BÁO GIÁ RIÊNG!**\n\nBot **KHÔNG** làm việc riêng với bạn.Để đảm bảo an toàn và uy tín, mời bạn vào nhóm chung để giao dịch:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
         return
 
-    # --- TRƯỜNG HỢP 2: TIN NHẮN TRONG NHÓM ---
+    # 2. XỬ LÝ TRONG NHÓM
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
     
     clean_text = text.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean_text)
     
-    # Logic tìm số tiền
     if match:
         amount = int(match.group())
         if amount <= 0: return
@@ -181,7 +168,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(resp, parse_mode='Markdown')
         return
 
-    # Logic hỏi giá
     if any(kw in text for kw in TU_KHOA_HOI_GIA):
         rate_display = "{:,.2f}".format(current_usd_rate).replace('.', ',')
         msg = (
