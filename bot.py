@@ -24,10 +24,9 @@ TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', '�
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734838`
+✅ **SỐ TÀI KHOẢN:** `734.838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
-
 ❌ **TUYỆT ĐỐI KHÔNG GHI:** Mua bán, USD, Tiền hàng...
 📌 **Lưu ý quan trọng:** Chỉ giao dịch tài khoản chính chủ. Người mua chịu trách nhiệm 100% về nguồn tiền nếu xảy ra vấn đề pháp lý.
 """
@@ -69,7 +68,7 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Chào mừng người mới vào nhóm"""
     for member in update.message.new_chat_members:
         if member.is_bot: continue
-        keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]]
+        keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")]]
         await update.message.reply_text(f"👋 Chào {member.first_name}! Chào mừng bạn đã vào nhóm.\nBấm nút dưới để cài giao diện Tiếng Việt nhé 👇", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
