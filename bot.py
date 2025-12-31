@@ -1,5 +1,7 @@
 import re 
 import os 
+import datetime
+import pytz
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from threading import Thread
@@ -13,130 +15,138 @@ ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 
-# 👇 KIỂM TRA LẠI LINK GOOGLE SHEET CỦA BẠN TẠI ĐÂY
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1X_T8p46p5Yh_Q0v2S6vY7Y_o2E7_L8Z8Z8Z8Z8Z8Z8/edit" 
-SHEET_NAME = "Trang tính1" 
+# 👇 DÁN LINK GOOGLE SHEET CỦA BẠN VÀO ĐÂY
+SHEET_URL = "https://docs.google.com/spreadsheets/d/xxxxxxxxxxxx/edit" 
+SHEET_NAME = "Trang tính1" # Tên cái tab bên dưới (thường là Sheet1 hoặc Trang tính1)
 
+# Tên file key bạn đã up lên GitHub
 KEY_FILE = 'google_key.json'
 
-TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'xong rồi', 'done']
-
+TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'check giúp', 'done', 'thanks']
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
 ✅ **SỐ TÀI KHOẢN:** `734838`
-*(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
-📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
-
-❌ **TUYỆT ĐỐI KHÔNG GHI:** Mua bán, USD, Tiền hàng...
-📌 **Lưu ý quan trọng:** Chỉ giao dịch tài khoản chính chủ. Người mua chịu trách nhiệm 100% về nguồn tiền nếu xảy ra vấn đề pháp lý.
 """
 
-# Giá mặc định (Bạn có thể sửa số này thành giá thị trường hiện tại)
 current_usd_rate = 26.95
 
 # --- KẾT NỐI GOOGLE SHEET ---
-def save_to_sheet(nguoi_chuyen, gmail_khach, so_usd):
+def save_to_sheet(user_name, amount, rate, total_vnd):
     try:
+        # Cấu hình kết nối
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
         client = gspread.authorize(creds)
+        
+        # Mở sheet
         sheet = client.open_by_url(SHEET_URL).worksheet(SHEET_NAME)
-        # Ghi vào: Cột A(Trống), B(Người chuyển), C(Gmail), D(Số USD)
-        row = ["", nguoi_chuyen, gmail_khach, so_usd]
+        
+        # Lấy giờ Việt Nam
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now = datetime.datetime.now(vn_tz).strftime("%d/%m/%Y %H:%M:%S")
+        
+        # Dữ liệu cần lưu (Cột A: Ngày giờ, B: Người chốt, C: Số lượng $, D: Tỷ giá, E: Tổng tiền)
+        row = [now, user_name, amount, rate, total_vnd]
+        
+        # Ghi vào dòng cuối cùng
         sheet.append_row(row)
         return True
     except Exception as e:
         print(f"Lỗi Sheet: {e}")
         return False
 
-# --- SERVER ẢO GIỮ BOT ONLINE ---
+# --- SERVER ---
 app_flask = Flask('')
 @app_flask.route('/')
-def home(): return "Bot đang hoạt động!"
+def home(): return "Bot đang chạy ngon lành!"
 def run_http(): app_flask.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
 def keep_alive(): t = Thread(target=run_http); t.start()
 
-# --- LOGIC CÁC LỆNH ---
+# --- LOGIC ---
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh /start hoặc /tiengviet"""
-    keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("👋 Chào mừng bạn! Bấm nút dưới để cài Tiếng Việt cho Telegram nhé 👇", reply_markup=reply_markup)
+async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Lệnh chốt đơn vào Sheet: /chot 1000"""
+    # Lấy thông tin người chốt
+    user_name = update.effective_user.first_name
+    
+    try:
+        # Kiểm tra xem có nhập số tiền không
+        if not context.args:
+            await update.message.reply_text("⚠️ Vui lòng nhập số tiền đã nhận.\nVí dụ: `/chot 1000`", parse_mode='Markdown')
+            return
 
-async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Chào mừng người mới vào nhóm"""
-    for member in update.message.new_chat_members:
-        if member.is_bot: continue
-        keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]]
-        await update.message.reply_text(f"👋 Chào {member.first_name}! Chào mừng bạn đã vào nhóm.\nBấm nút dưới để cài giao diện Tiếng Việt nhé 👇", reply_markup=InlineKeyboardMarkup(keyboard))
+        # Xử lý số tiền
+        amount_str = context.args[0].replace(',', '').replace('.', '')
+        amount = int(amount_str)
+        
+        # Tính toán
+        total_vnd = amount * current_usd_rate * 1000
+        formatted_vnd = "{:,.0f}".format(total_vnd).replace(',', '.')
+        
+        # Lưu vào Google Sheet
+        await update.message.reply_text("⏳ Đang lưu vào Google Sheet...")
+        
+        success = save_to_sheet(user_name, amount, current_usd_rate, formatted_vnd)
+        
+        if success:
+            msg = (
+                f"✅ **ĐÃ LƯU GIAO DỊCH THÀNH CÔNG!**\n"
+                f"👤 Người chốt: {user_name}\n"
+                f"💵 Số lượng: {amount} $\n"
+                f"💰 Tổng tiền: {formatted_vnd} VNĐ\n"
+                f"📝 Đã ghi vào file báo cáo."
+            )
+            await update.message.reply_text(msg, parse_mode='Markdown')
+        else:
+            await update.message.reply_text("❌ Lỗi kết nối Google Sheet! (Kiểm tra lại file Key hoặc quyền truy cập)")
+            
+    except ValueError:
+        await update.message.reply_text("⚠️ Số tiền không hợp lệ.")
 
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh /gia dành cho Admin"""
     global current_usd_rate
     if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Bạn không có quyền!")
+        await update.message.reply_text("⛔ Không có quyền!")
         return
     try:
         if not context.args: return
-        new_val = float(context.args[0].replace(',', '.'))
-        if new_val > 1000: new_val = new_val / 1000
-        current_usd_rate = new_val
-        display = "{:,.3f}".format(new_val).rstrip('0').rstrip('.')
+        new_rate = float(context.args[0].replace(',', '.'))
+        if new_rate > 1000: new_rate = new_rate / 1000
+        current_usd_rate = new_rate
         
-        announcement = f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ**\n--------------------------------\n💵 Giá USD hiện tại: **{display}** VNĐ\n👉 Mời anh em lên đơn!"
-        sent_msg = await context.bot.send_message(chat_id=GROUP_ID, text=announcement, parse_mode='Markdown')
-        await sent_msg.pin()
-        await update.message.reply_text(f"✅ Đã cập nhật giá {display} và ghim lên nhóm!")
-    except:
-        await update.message.reply_text("⚠️ Sai cú pháp. VD: /gia 27")
+        display_rate = "{:,.3f}".format(new_rate).rstrip('0').rstrip('.')
+        msg = f"📣 **THÔNG BÁO TỶ GIÁ MỚI: {display_rate}**"
+        try:
+            m = await context.bot.send_message(chat_id=GROUP_ID, text=msg, parse_mode='Markdown')
+            await m.pin()
+            await update.message.reply_text("✅ Đã cập nhật!")
+        except: pass
+    except: pass
 
-async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lệnh /chot [Số USD] [Gmail]"""
-    user_name = update.effective_user.first_name
-    try:
-        if len(context.args) < 2:
-            await update.message.reply_text("⚠️ Cú pháp: `/chot [Số USD] [Gmail]`\nVí dụ: `/chot 500 abc@gmail.com`", parse_mode='Markdown')
-            return
-        
-        so_usd = context.args[0]
-        gmail = context.args[1]
-        await update.message.reply_text("⏳ Đang ghi vào Google Sheet...")
-        
-        if save_to_sheet(user_name, gmail, so_usd):
-            await update.message.reply_text(f"✅ **ĐÃ GHI SỔ THÀNH CÔNG**\n👤 Telegram: {user_name}\n📧 Gmail: {gmail}\n💵 Số tiền: {so_usd} USD", parse_mode='Markdown')
-        else:
-            await update.message.reply_text("❌ Lỗi kết nối Google Sheet!")
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Lỗi: {e}")
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    k = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]]
+    await update.message.reply_text("👋 Chào bạn!", reply_markup=InlineKeyboardMarkup(k))
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý báo giá tự động"""
-    chat_type = update.message.chat.type
-    user_id = update.effective_user.id
+    if update.message.chat.type == 'private' and update.effective_user.id != ADMIN_ID:
+        k = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]]
+        await update.message.reply_text(f"⛔ Vào nhóm nha: {LINK_NHOM}", reply_markup=InlineKeyboardMarkup(k))
+        return 
+
     text = update.message.text.lower()
+    if any(t in text for t in TU_KHOA_BO_QUA): return 
 
-    # Nhắn tin riêng
-    if chat_type == 'private' and user_id != ADMIN_ID:
-        keyboard = [[InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]]
-        await update.message.reply_text(f"⛔ Vui lòng vào nhóm để xem giá: {LINK_NHOM}", reply_markup=InlineKeyboardMarkup(keyboard))
-        return
-
-    # Lọc từ khóa bỏ qua
-    if any(tk in text for tk in TU_KHOA_BO_QUA): return
-
-    # Tính tiền
-    keywords = ['mua', 'bán', 'đổi', 'giá', 'usd', '$', 'check']
     clean_text = text.replace('.', '').replace(',', '')
-    match = re.search(r'\d+', clean_text)
-    rate_display = "{:,.2f}".format(current_usd_rate).replace('.', ',')
-
+    match = re.search(r'\d+', clean_text) 
+    keywords = ['mua', 'bán', 'đổi', 'check', 'giá', 'usd']
+    
     if match and (text.strip().isdigit() or any(w in text for w in keywords)):
         amount = int(match.group())
-        total_vnd = "{:,.0f}".format(amount * current_usd_rate * 1000).replace(',', '.')
-        resp = f"💵 **BÁO GIÁ:**\n✅ Số lượng: {amount} $\n✅ Tỷ giá: {rate_display}\n💰 **THÀNH TIỀN: {total_vnd} VNĐ**\n-----------------------------\n{NOI_DUNG_CK}"
+        vnd = "{:,.0f}".format(amount * current_usd_rate * 1000).replace(',', '.')
+        rate_str = "{:,.2f}".format(current_usd_rate).replace('.', ',')
         
+        resp = f"💵 **BÁO GIÁ:**\n✅ {amount} $ x {rate_str}\n💰 **{vnd} VNĐ**\n\n{NOI_DUNG_CK}"
         script_dir = os.path.dirname(os.path.abspath(__file__))
         photo_path = os.path.join(script_dir, 'qr.jpg')
         try:
@@ -147,20 +157,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(resp, parse_mode='Markdown')
         except: pass
     elif any(w in text for w in keywords):
-        await update.message.reply_text(f"📈 Tỷ giá hiện tại: **{rate_display}** VNĐ", parse_mode='Markdown')
+         await update.message.reply_text(f"📈 Tỷ giá: **{current_usd_rate}**", parse_mode='Markdown')
 
 def main():
-    keep_alive()
+    keep_alive() 
     app = Application.builder().token(TOKEN).build()
-    
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("tiengviet", start_command))
     app.add_handler(CommandHandler("gia", set_rate))
-    app.add_handler(CommandHandler("chot", chot_don))
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    print("Bot đang chạy...")
+    # Thêm lệnh chốt đơn mới
+    app.add_handler(CommandHandler("chot", chot_don))
+    
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
 
 if __name__ == '__main__':
