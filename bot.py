@@ -118,7 +118,7 @@ async def update_rate_logic(context, new_rate):
     # 2. Gửi tin mới
     msg_text = (
         f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ** \n"
-        f"-----------------\n"
+        f"---------------\n"
         f"💵 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
         f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
         f"👉 Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
@@ -171,7 +171,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
-            "⛔ **THÔNG BÁO VỚI SẾP**\n\nĐể đảm bảo an toàn và uy tín,em **KHÔNG** làm việc qua tin nhắn riêng ạ.\nào nhóm chung để giao dịch Sêp nhé. 👇 👇 👇  Tham gia ngay:",
+            "⛔ **THÔNG BÁO VỚI SẾP**\n\nĐể đảm bảo an toàn và uy tín,em **KHÔNG** làm việc qua tin nhắn riêng ạ.\nEm mời Sếp vào nhóm chung để giao dịch Sếp nhé. 👇 👇 👇  Tham gia ngay:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
