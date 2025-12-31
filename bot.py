@@ -2,7 +2,7 @@ import re
 import os 
 from threading import Thread
 from flask import Flask
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- CẤU HÌNH ---
@@ -11,12 +11,11 @@ ADMIN_ID = 507318519
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 
-# --- DANH SÁCH TỪ KHÓA BỎ QUA (BOT SẼ IM LẶNG NẾU GẶP CÁC TỪ NÀY) ---
-# Bạn có thể thêm các từ khác vào đây, để trong dấu nháy đơn, cách nhau bằng dấu phẩy
+# --- TỪ KHÓA BỎ QUA ---
 TU_KHOA_BO_QUA = [
     'đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 
-    'đã chuyển', 'check giúp', 'kiểm tra giúp',
-    'done', 'xong rồi', 'uy tín', 'Tài khoản',
+    'đã bank', 'đã chuyển', 'check giúp', 'kiểm tra giúp',
+    'done', 'xong rồi', 'uy tín', 'cảm ơn', 'thanks'
 ]
 
 NOI_DUNG_CK = """
@@ -49,6 +48,22 @@ def keep_alive():
 
 # --- LOGIC BOT ---
 
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Lệnh /start hoặc /tiengviet: Gửi nút cài tiếng Việt"""
+    user_name = update.effective_user.first_name
+    
+    # Tạo nút bấm (Link dẫn đến gói ngôn ngữ Tiếng Việt phổ biến nhất)
+    keyboard = [
+        [InlineKeyboardButton("🇻🇳 BẤM VÀO ĐÂY ĐỂ CÀI TIẾNG VIỆT 🇻🇳", url="https://t.me/setlanguage/vi-beta")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    msg = (
+        f"👋 Chào {user_name}!\n\n"
+        f"Nếu Telegram của bạn đang là Tiếng Anh và bạn thấy khó sử dụng, hãy bấm vào nút bên dưới để chuyển sang giao diện **Tiếng Việt** ngay nhé 👇"
+    )
+    await update.message.reply_text(msg, reply_markup=reply_markup)
+
 async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Lệnh chỉnh giá: /gia 26,95"""
     global current_usd_rate
@@ -69,11 +84,11 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         display_rate = "{:,.3f}".format(new_rate).rstrip('0').rstrip('.')
         
         announcement = (
-            f"📣 **CẬP NHẬT TỶ GIÁ USD**\n"
+            f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ**\n"
             f"--------------------------------\n"
             f"💵 Giá USD hiện tại: **{display_rate}** VNĐ\n"
             f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
-            f"👉 Chúc anh chị em giúp mọi người sở hữu được nhiều cổ phần nha"
+            f"👉 Mời anh em lên đơn!"
         )
         
         try:
@@ -89,22 +104,28 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_type = update.message.chat.type 
     user_id = update.effective_user.id   
-    text = update.message.text.lower() # Chuyển tin nhắn về chữ thường để kiểm tra
+    text = update.message.text.lower()
     
-    # 1. KIỂM TRA TIN NHẮN RIÊNG (Đuổi khách về nhóm)
+    # 1. KIỂM TRA TIN NHẮN RIÊNG
     if chat_type == 'private' and user_id != ADMIN_ID:
+        # Nếu khách chat riêng, gửi lời chào + Nút cài Tiếng Việt luôn cho tiện
+        keyboard = [
+            [InlineKeyboardButton("🇻🇳 BẤM ĐỂ CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
         msg = (
             f"⛔ **BOT KHÔNG BÁO GIÁ RIÊNG!**\n\n"
-            f"Để đảm bảo an toàn và uy tín, mời bạn vào nhóm chung để giao dịch:\n"
-            f"👉 **Tham gia ngay:** {LINK_NHOM}"
+            f"Mời bạn vào nhóm chung để giao dịch:\n"
+            f"👉 **Tham gia ngay:** {LINK_NHOM}\n\n"
+            f"👇 *Nếu chưa có Tiếng Việt, bấm nút dưới:*"
         )
-        await update.message.reply_text(msg, parse_mode='Markdown')
+        await update.message.reply_text(msg, parse_mode='Markdown', reply_markup=reply_markup)
         return 
     
-    # 2. BỘ LỌC THÔNG MINH (QUAN TRỌNG) -> Nếu gặp câu chốt đơn thì IM LẶNG
-    # Nếu tin nhắn chứa bất kỳ từ nào trong danh sách TU_KHOA_BO_QUA -> Bot sẽ dừng lại ngay
+    # 2. BỘ LỌC TỪ KHÓA
     if any(tu_khoa in text for tu_khoa in TU_KHOA_BO_QUA):
-        return # Dừng lại, không làm gì cả
+        return 
 
     # 3. XỬ LÝ TÍNH TIỀN
     keywords = ['mua', 'bán', 'đổi', 'check', 'giá', 'usd', 'đô', '$', 'rate']
@@ -116,9 +137,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if match:
         amount = int(match.group()) 
         should_reply = False
-        # Nếu chỉ có số (VD: 1000) -> Trả lời
         if text.strip().replace('.', '').replace(',', '').replace('$', '').isdigit(): should_reply = True
-        # Nếu có số + từ khóa (VD: mua 1000 usd) -> Trả lời
         elif any(word in text for word in keywords): should_reply = True
 
         if should_reply:
@@ -161,6 +180,11 @@ def main():
     keep_alive() 
     print("Bot đang chạy...")
     app = Application.builder().token(TOKEN).build()
+    
+    # Thêm lệnh /start và /tiengviet
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("tiengviet", start_command))
+    
     app.add_handler(CommandHandler("gia", set_rate))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
