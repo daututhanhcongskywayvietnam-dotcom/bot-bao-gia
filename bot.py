@@ -18,7 +18,7 @@ LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734838`
+✅ **SỐ TÀI KHOẢN:** `734.838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
 
@@ -29,18 +29,23 @@ NOI_DUNG_CK = """
 current_usd_rate = 27.0
 
 # --- DANH SÁCH TỪ KHÓA BỎ QUA (IGNORE LIST) ---
-# Nếu tin nhắn chứa các từ này, Bot sẽ IM LẶNG (Không báo giá)
+# (Lưu ý: Đã xóa các từ liên quan đến 'nhận đủ' để Bot bắt được tin nhắn của nhân viên)
 TU_KHOA_BO_QUA = [
-    'đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done', 'ok',
+    'đã bank', 'check giúp', 'done', 'ok',
     'bill', 'biên lai', 'đã chuyển', 'ck xong', 'đã ck', 'chuyển khoản', 
     'gmail', 'email', '@', 'gửi rồi', 'đã gửi'
 ]
 
-# Từ khóa khách hỏi giá (để Bot trả lời hướng dẫn)
-TU_KHOA_HOI_GIA = ['giá', 'gia', 'rate', 'tỷ giá', 'ty gia', 'bao nhiêu', 'nhiêu']
+# Từ khóa xác nhận của nhân viên (Để bot chúc mừng)
+TU_KHOA_NHAN_VIEN = ['đã bank', 'check giúp', 'done', 'ok', 'bill', 'biên lai', 'đã chuyển', 'ck xong', 'đã ck', 'chuyển khoản', 'gmail', 'email', '@', 'gửi rồi', 'đã gửi']
 
-# Biến lưu ID tin nhắn chào mừng cũ để xóa
-last_welcome_message_id = None 
+# Từ khóa khách hỏi giá (để Bot trả lời hướng dẫn)
+TU_KHOA_HOI_GIA = ['giá', 'gia', 'đô', ' đô hôm nay','gia do', 'rate', 'tỷ giá','Xem giá', 'báo giá' 'giá đô',,'ty gia', 'bao nhiêu', 'nhiêu']
+
+# --- CÁC BIẾN LƯU ID TIN NHẮN (ĐỂ TỰ XÓA TIN CŨ) ---
+last_welcome_message_id = None  # Lưu tin chào mừng
+last_rate_message_id = None     # Lưu tin báo giá ghim
+last_congrats_message_id = None # Lưu tin chúc mừng
 
 # --- SERVER ẢO GIỮ BOT ONLINE ---
 app_flask = Flask('')
@@ -54,25 +59,27 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == "private":
         if update.effective_user.id == ADMIN_ID:
-            await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{current_usd_rate}**.\nSếp cứ nhắn giá mới (VD: `27.5`) em sẽ tự ghim lên nhóm kèm lời chúc nhé.", parse_mode='Markdown')
+            await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{current_usd_rate}**.\nSếp cứ nhắn giá mới (VD: `27.5`) em sẽ tự đổi, tự xóa giá cũ và ghim giá mới nhé.", parse_mode='Markdown')
         else:
             keyboard = [
-                [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
-                [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
+                [InlineKeyboardButton("👥 VÀO NHÓM TRAO ĐỔI NGAY", url=LINK_NHOM)],
+                [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
                 [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
             ]
             await update.message.reply_text(
-                "👋 **Chào mừng bạn!**\n\n"
-                "🔒 Bot **CHỈ BÁO GIÁ VÀ GIAO DỊCH TRONG NHÓM**.\n"
-                "👉 Vui lòng bấm nút bên dưới để tham gia:",
+                "👋 **Em chào Sếp!**\n\n"
+                "🔒 Để bảo mật, em **CHỈ BÁO GIÁ VÀ GIAO DỊCH TRONG NHÓM**.\n"
+                "👉 Mời Sếp bấm nút bên dưới để tham gia ạ:",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
     else:
-        await update.message.reply_text("Bot đã sẵn sàng!")
+        await update.message.reply_text("Em đã sẵn sàng phục vụ Sếp!")
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global last_welcome_message_id
+    
+    # Xóa tin chào cũ
     if last_welcome_message_id:
         try:
             await context.bot.delete_message(chat_id=update.message.chat_id, message_id=last_welcome_message_id)
@@ -81,34 +88,47 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
     for member in update.message.new_chat_members:
         if member.is_bot: continue
         keyboard = [
-            [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")],
+            [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
             [InlineKeyboardButton("📢 KÊNH TIN TỨC CHÍNH THỨC", url=LINK_CHANNEL)]
         ]
+        # Chào mừng theo phong cách mới
         msg = await update.message.reply_text(
-            f"👋 Chào mừng **{member.first_name}** đã gia nhập nhóm!\n\n"
-            f"👉 Bạn hãy ấn nút dưới đây để cài Tiếng Việt cho dễ dùng nhé 👇", 
+            f"👋 Chào mừng **Sếp {member.first_name}** đã gia nhập nhóm!\n\n"
+            f"❤️ Kính chúc Sếp luôn dồi dào sức khoẻ và thịnh vượng tài chính.\n\n"
+            f"👉 Sếp hãy ấn nút dưới đây để cài Tiếng Việt cho dễ dùng nhé 👇", 
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
         last_welcome_message_id = msg.message_id
 
-# --- HÀM CẬP NHẬT GIÁ (CÓ LỜI CHÚC) ---
+# --- HÀM CẬP NHẬT GIÁ (TỰ XÓA GIÁ CŨ) ---
 async def update_rate_logic(context, new_rate):
-    global current_usd_rate
+    global current_usd_rate, last_rate_message_id
     current_usd_rate = new_rate
     
+    # 1. Xóa tin báo giá cũ (nếu có)
+    if last_rate_message_id:
+        try:
+            await context.bot.delete_message(chat_id=GROUP_ID, message_id=last_rate_message_id)
+        except: pass
+
+    # 2. Gửi tin mới
     msg_text = (
         f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ** \n"
         f"-----------------\n"
-        f"💵 Giá USD hiện tại:**{current_usd_rate} VNĐ**\n\n"
+        f"💵 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
         f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
-        f"👉  Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
+        f"👉 Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
     )
     
     sent_msg = await context.bot.send_message(chat_id=GROUP_ID, text=msg_text, parse_mode='Markdown')
+    
+    # 3. Ghim tin mới và lưu ID lại
     try:
         await sent_msg.pin(disable_notification=False)
+        last_rate_message_id = sent_msg.message_id
     except: pass
+    
     return sent_msg
 
 async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -117,13 +137,14 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_val = float(context.args[0].replace(',', '.'))
         new_val = new_val if new_val < 1000 else new_val/1000
         await update_rate_logic(context, new_val)
-        await update.message.reply_text(f"✅ Đã ghim giá mới: {current_usd_rate}")
+        await update.message.reply_text(f"✅ Đã đổi giá và xóa tin cũ: {current_usd_rate}")
     except: pass
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global last_congrats_message_id
     text = update.message.text.lower()
 
-    # 1. ADMIN NHẮN RIÊNG -> CẬP NHẬT GIÁ
+    # --- 1. ADMIN NHẮN RIÊNG -> CẬP NHẬT GIÁ ---
     if update.message.chat.type == "private":
         if update.effective_user.id == ADMIN_ID:
             clean_text = text.replace(',', '.')
@@ -132,7 +153,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 val = float(match.group())
                 if 20 < val < 30: 
                     await update_rate_logic(context, val)
-                    await update.message.reply_text(f"✅ Đã báo giá **{val}** vào nhóm kèm lời chúc rồi Sếp nhé!")
+                    await update.message.reply_text(f"✅ Đã cập nhật giá **{val}** (đã xóa giá cũ và ghim giá mới) rồi Sếp nhé!")
                     return
                 elif val > 1000:
                     await update.message.reply_text("⚠️ Số to quá Sếp ơi, có phải tỷ giá không ạ?")
@@ -146,21 +167,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
-            "⚠️ **THÔNG BÁO**\n\nBot **KHÔNG** làm việc qua tin nhắn riêng.\nMời bạn vào nhóm chung:",
+            "⚠️ **THÔNG BÁO**\n\nEm **KHÔNG** làm việc qua tin nhắn riêng.\nMời Sếp vào nhóm chung ạ:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
         return
 
-    # 2. XỬ LÝ TRONG NHÓM
-    
-    # === QUAN TRỌNG: NẾU THẤY TỪ KHÓA NÀY THÌ IM LẶNG ===
+    # --- 2. XỬ LÝ TRONG NHÓM ---
+
+    # A. CHECK TIN NHẮN NHÂN VIÊN (CHÚC MỪNG)
+    # Kiểm tra xem có từ khóa nhân viên xác nhận không (Vd: nhận đủ, nhận được đủ)
+    if any(kw in text for kw in TU_KHOA_NHAN_VIEN):
+        # Xóa tin chúc mừng cũ (nếu có)
+        if last_congrats_message_id:
+            try:
+                await context.bot.delete_message(chat_id=update.message.chat_id, message_id=last_congrats_message_id)
+            except: pass
+        
+        # Gửi tin chúc mừng mới
+        msg = await update.message.reply_text(
+            "🎉 **Chúc mừng Sếp sở hữu thêm nhiều tài sản nhé!** 🚀",
+            parse_mode='Markdown'
+        )
+        last_congrats_message_id = msg.message_id
+        return # Dừng lại, không xử lý tiếp
+
+    # B. BỎ QUA CÁC TỪ KHÓA KHÁC (Bill, Gmail...)
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
     
     clean_text = text.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean_text)
     
-    # Logic tìm số tiền
+    # C. LOGIC TÍNH TIỀN (BÁO GIÁ)
     if match:
         amount = int(match.group())
         if amount <= 0: return
@@ -180,11 +218,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(resp, parse_mode='Markdown')
         return
 
+    # D. KHÁCH HỎI GIÁ (Sếp/Em)
     if any(kw in text for kw in TU_KHOA_HOI_GIA):
         rate_display = "{:,.2f}".format(current_usd_rate).replace('.', ',')
         msg = (
             f"ℹ️ Tỷ giá hiện tại là: **{rate_display} VNĐ**\n\n"
-            f"👉 Bạn hãy nhắn **Số lượng cần mua** (VD: `1000`) để mình tính tiền nhé!"
+            f"👉 Sếp hãy nhắn **Số lượng cần mua** (VD: `1000`) để em tính tiền nhé!"
         )
         await update.message.reply_text(msg, parse_mode='Markdown')
 
