@@ -18,7 +18,7 @@ LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734838`
+✅ **SỐ TÀI KHOẢN:** `734.838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
 
@@ -109,7 +109,7 @@ async def update_rate_logic(context, new_rate):
         except: pass
 
     msg_text = (
-        f"📣 **THÔNG BÁO CẬP NHẬT TỶ GIÁ** \n"
+        f"📣 **CẬP NHẬT TỶ GIÁ** \n"
         f"-----------------\n"
         f"💵 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
         f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
