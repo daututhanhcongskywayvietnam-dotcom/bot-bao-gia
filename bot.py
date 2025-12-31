@@ -14,7 +14,7 @@ LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1"
 GROUP_ID = -1002946689229 
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
-# NỘI DUNG CHUYỂN KHOẢN
+# NỘI DUNG CHUYỂN KHOẢN (Đính kèm trong ảnh báo giá)
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
@@ -27,7 +27,16 @@ NOI_DUNG_CK = """
 """
 
 current_usd_rate = 27.0
-TU_KHOA_BO_QUA = ['đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done', 'ok']
+
+# --- DANH SÁCH TỪ KHÓA BỎ QUA (IGNORE LIST) ---
+# Nếu tin nhắn chứa các từ này, Bot sẽ IM LẶNG (Không báo giá)
+TU_KHOA_BO_QUA = [
+    'đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 'đã bank', 'check giúp', 'done', 'ok',
+    'bill', 'biên lai', 'đã chuyển', 'ck xong', 'đã ck', 'chuyển khoản', 
+    'gmail', 'email', '@', 'gửi rồi', 'đã gửi'
+]
+
+# Từ khóa khách hỏi giá (để Bot trả lời hướng dẫn)
 TU_KHOA_HOI_GIA = ['giá', 'gia', 'rate', 'tỷ giá', 'ty gia', 'bao nhiêu', 'nhiêu']
 
 # Biến lưu ID tin nhắn chào mừng cũ để xóa
@@ -83,15 +92,14 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         last_welcome_message_id = msg.message_id
 
-# --- HÀM CẬP NHẬT GIÁ (ĐÃ SỬA LỜI CHÚC THIỆN CẢM) ---
+# --- HÀM CẬP NHẬT GIÁ (CÓ LỜI CHÚC) ---
 async def update_rate_logic(context, new_rate):
     global current_usd_rate
     current_usd_rate = new_rate
     
-    # Nội dung tin nhắn ghim mới
     msg_text = (
-        f"✨ **CẬP NHẬT TỶ GIÁ MỚI** ✨\n"
-        f"--------------\n"
+        f"✨ **THÔNG BÁO TỶ GIÁ MỚI** ✨\n"
+        f"-----------------------------\n"
         f"🌱 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
         f"❤️ Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
     )
@@ -130,25 +138,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return
             await update.message.reply_text("Sếp nhắn tỷ giá (ví dụ: `27` hoặc `26.95`) em đổi ngay.", parse_mode='Markdown')
             return
-
+        
         # KHÁCH NHẮN RIÊNG -> ĐUỔI VỀ NHÓM
         keyboard = [
             [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
             [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
-            "⛔ **BOT KHÔNG BÁO GIÁ RIÊNG!**\n\nBot **KHÔNG** làm việc riêng với bạn.Để đảm bảo an toàn và uy tín, mời bạn vào nhóm chung để giao dịch:",
+            "⚠️ **THÔNG BÁO**\n\nBot **KHÔNG** làm việc qua tin nhắn riêng.\nMời bạn vào nhóm chung:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
         return
 
     # 2. XỬ LÝ TRONG NHÓM
+    
+    # === QUAN TRỌNG: NẾU THẤY TỪ KHÓA NÀY THÌ IM LẶNG ===
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
     
     clean_text = text.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean_text)
     
+    # Logic tìm số tiền
     if match:
         amount = int(match.group())
         if amount <= 0: return
