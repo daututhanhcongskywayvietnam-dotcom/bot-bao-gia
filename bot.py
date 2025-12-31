@@ -28,7 +28,7 @@ NOI_DUNG_CK = """
 📌 **Lưu ý quan trọng:** Chỉ giao dịch tài khoản chính chủ. Người mua chịu trách nhiệm 100% về nguồn tiền nếu xảy ra vấn đề pháp lý.
 """
 
-current_usd_rate = 27.0
+current_usd_rate = 26.95
 
 app_flask = Flask('')
 
