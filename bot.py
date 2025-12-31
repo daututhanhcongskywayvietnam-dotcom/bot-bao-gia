@@ -39,11 +39,11 @@ current_usd_rate = 26.95
 # --- KẾT NỐI GOOGLE SHEET ---
 def save_to_sheet(nguoi_chuyen, gmail_khach, so_usd):
     try:
-        # 1. Lấy ngày VN (Chỉ Ngày/Tháng/Năm để khớp công thức lọc của bạn)
+        # 1. Lấy ngày VN (Chỉ Ngày/Tháng/Năm)
         vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
         ngay_hien_tai = datetime.now(vn_tz).strftime("%d/%m/%Y")
 
-        # 2. Tính toán Giá Bán (VNĐ) - Ghi vào cột E
+        # 2. Tính toán Giá Bán (VNĐ)
         val_usd = float(so_usd)
         thanh_tien_vnd = int(val_usd * current_usd_rate * 1000)
 
@@ -53,14 +53,18 @@ def save_to_sheet(nguoi_chuyen, gmail_khach, so_usd):
         client = gspread.authorize(creds)
         sheet = client.open_by_url(SHEET_URL).worksheet(SHEET_NAME)
 
-        # 4. Định dạng dữ liệu: Cột D phải có chữ "usd" dính liền để công thức SUBSTITUTE của bạn chạy được
+        # 4. Định dạng dữ liệu chuẩn để khớp công thức Sheet
         so_usd_kem_don_vi = f"{so_usd}usd"
-        
-        # Thứ tự cột ghi vào: A=Ngày, B=Người chuyển, C=Gmail, D=Số USD, E=Giá Bán
         row = [ngay_hien_tai, nguoi_chuyen, gmail_khach, so_usd_kem_don_vi, thanh_tien_vnd]
         
-        # USER_ENTERED giúp Sheet hiểu định dạng ngày tháng và tiền tệ chuẩn
-        sheet.append_row(row, value_input_option='USER_ENTERED')
+        # 5. TÌM HÀNG TIẾP THEO (Dựa trên cột A) ĐỂ GHI DỮ LIỆU
+        # Thay vì dùng append_row (dễ nhảy cột), ta dùng update vào range A:E
+        all_dates = sheet.col_values(1)  # Lấy tất cả dữ liệu cột A
+        next_row = len(all_dates) + 1    # Hàng trống tiếp theo
+        
+        # Chỉ định rõ phạm vi cập nhật từ A đến E ở hàng tiếp theo
+        target_range = f"A{next_row}:E{next_row}"
+        sheet.update(target_range, [row], value_input_option='USER_ENTERED')
         
         return ngay_hien_tai, thanh_tien_vnd
     except Exception as e:
@@ -112,6 +116,7 @@ async def chot_don(update: Update, context: ContextTypes.DEFAULT_TYPE):
             vnd_display = "{:,.0f}".format(vnd_res).replace(',', '.')
             await update.message.reply_text(
                 f"✅ **GHI SỔ THÀNH CÔNG**\n"
+                f"-----------------------------\n"
                 f"📅 Ngày: {time_res}\n"
                 f"👤 Khách: {user_name}\n"
                 f"📧 Gmail: {gmail}\n"
