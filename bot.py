@@ -14,13 +14,13 @@ GROUP_ID = -1002946689229
 TU_KHOA_BO_QUA = [
     'đã nhận', 'nhận đủ', 'đủ usd', 'đủ tiền', 
     'đã bank', 'đã chuyển', 'check giúp', 'kiểm tra giúp',
-    'done', 'xong rồi', 'uy tín', 'cảm ơn', 'thanks'
+    'done', 'xong rồi', 'uy tín',
 ]
 
 NOI_DUNG_CK = """
-✅ **NGÂN HÀNG:** ACB
+✅ **NGÂN HÀNG:** ACB Á Châu
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734838`
+✅ **SỐ TÀI KHOẢN:** `734.838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
 
@@ -97,7 +97,7 @@ async def set_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"--------------------------------\n"
             f"💵 Giá USD hiện tại: **{display_rate}** VNĐ\n"
             f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
-            f"👉 Mời anh em lên đơn!"
+            f"👉 Chúc anh chị em sở hữu được nhiều cổ phần nha"
         )
         try:
             sent_message = await context.bot.send_message(chat_id=GROUP_ID, text=announcement, parse_mode='Markdown')
