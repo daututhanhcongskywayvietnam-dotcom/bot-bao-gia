@@ -167,10 +167,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # KHÁCH NHẮN RIÊNG -> ĐUỔI VỀ NHÓM
         keyboard = [
             [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
+            [InlineKeyboardButton("🇻🇳 CÀI TIẾNG VIỆT NGAY", url="https://t.me/setlanguage/vi-beta")],
             [InlineKeyboardButton("📢 KÊNH TIN TỨC", url=LINK_CHANNEL)]
         ]
         await update.message.reply_text(
-            "⚠️ **THÔNG BÁO**\n\nEm **KHÔNG** làm việc qua tin nhắn riêng.\nMời Sếp vào nhóm chung ạ:",
+            "⛔ **THÔNG BÁO VỚI SẾP**\n\nĐể đảm bảo an toàn và uy tín,em **KHÔNG** làm việc qua tin nhắn riêng ạ.\nào nhóm chung để giao dịch Sêp nhé. 👇 👇 👇  Tham gia ngay:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
