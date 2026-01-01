@@ -101,14 +101,20 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
-        # 3. Lưu lại ID tin nhắn mới để lần sau xóa
         last_welcome_message_id = msg.message_id
+
+# --- TÍNH NĂNG MỚI: TỰ ĐỘNG XÓA THÔNG BÁO RỜI NHÓM ---
+async def delete_left_member_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        # Ngay lập tức xóa tin nhắn "XYZ left the group"
+        await update.message.delete()
+    except:
+        pass
 
 async def update_rate_logic(context, new_rate):
     global current_usd_rate, last_rate_message_id
     current_usd_rate = new_rate
     
-    # Xóa tin báo giá cũ
     if last_rate_message_id:
         try:
             await context.bot.delete_message(chat_id=GROUP_ID, message_id=last_rate_message_id)
@@ -147,14 +153,13 @@ async def send_congrats(update, context):
     last_congrats_message_id = msg.message_id
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Lấy nội dung tin nhắn (Text hoặc Caption của ảnh)
     text = ""
     if update.message.text:
         text = update.message.text
     elif update.message.caption:
         text = update.message.caption
     
-    if not text: return # Nếu không có chữ gì thì thôi
+    if not text: return 
     text = text.lower()
 
     # 1. ADMIN NHẮN RIÊNG
@@ -176,8 +181,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- XỬ LÝ TRONG NHÓM ---
 
-    # 2. KHÁCH GỬI ẢNH BILL + GMAIL + TIỀN (QUAN TRỌNG NHẤT)
-    # Điều kiện: Có Ảnh + (Có chữ Gmail hoặc @) + Có số tiền
+    # 2. KHÁCH GỬI ẢNH BILL + GMAIL + TIỀN
     has_photo = bool(update.message.photo)
     has_gmail = ("gmail" in text or "@" in text)
     has_money = re.search(r'\d+', text)
@@ -186,12 +190,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_congrats(update, context)
         return
 
-    # 3. NHÂN VIÊN XÁC NHẬN (BACKUP)
+    # 3. NHÂN VIÊN XÁC NHẬN
     if any(kw in text for kw in TU_KHOA_NHAN_VIEN):
         await send_congrats(update, context)
         return
 
-    # 4. BỎ QUA CÁC TỪ KHÓA KHÁC (Bill, Gmail mà không có ảnh)
+    # 4. BỎ QUA CÁC TỪ KHÓA KHÁC
     if any(tk in text for tk in TU_KHOA_BO_QUA): return
     
     # 5. BÁO GIÁ
@@ -228,7 +232,8 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("gia", set_rate_command))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
-    # QUAN TRỌNG: Thêm filters.PHOTO để bot đọc được ảnh
+    # THÊM DÒNG NÀY ĐỂ XÓA TIN NHẮN NGƯỜI RỜI ĐI
+    app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, delete_left_member_message))
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_message))
     app.run_polling()
 
