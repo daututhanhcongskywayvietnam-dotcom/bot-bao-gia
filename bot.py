@@ -44,7 +44,7 @@ TU_KHOA_HOI_GIA = [
     'đô', 'đô hôm nay', 'gia do', 'xem giá', 'báo giá', 'giá đô'
 ]
 
-# --- CÁC BIẾN LƯU ID TIN NHẮN ---
+# --- CÁC BIẾN LƯU ID TIN NHẮN (ĐỂ TỰ XÓA TIN CŨ) ---
 last_welcome_message_id = None
 last_rate_message_id = None
 last_congrats_message_id = None
@@ -80,11 +80,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global last_welcome_message_id
+    
+    # 1. Xóa tin chào cũ (nếu có)
     if last_welcome_message_id:
         try:
             await context.bot.delete_message(chat_id=update.message.chat_id, message_id=last_welcome_message_id)
         except: pass
 
+    # 2. Gửi tin chào mới
     for member in update.message.new_chat_members:
         if member.is_bot: continue
         keyboard = [
@@ -98,11 +101,14 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
+        # 3. Lưu lại ID tin nhắn mới để lần sau xóa
         last_welcome_message_id = msg.message_id
 
 async def update_rate_logic(context, new_rate):
     global current_usd_rate, last_rate_message_id
     current_usd_rate = new_rate
+    
+    # Xóa tin báo giá cũ
     if last_rate_message_id:
         try:
             await context.bot.delete_message(chat_id=GROUP_ID, message_id=last_rate_message_id)
@@ -165,7 +171,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Sếp nhắn tỷ giá (ví dụ: `27`) em đổi ngay.", parse_mode='Markdown')
             return
         keyboard = [[InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)]]
-        await update.message.reply_text("⛔ **EM KHÔNG BÁO GIÁ RIÊNG SẾP Ạ!**\nEm mời Sếp vào nhóm chung giao dịch để đảm bảo an toàn và uy tín giao dịch::", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await update.message.reply_text("⛔ **EM KHÔNG BÁO GIÁ RIÊNG SẾP Ạ!**\nEm mời Sếp vào nhóm chung để đảm bảo an toàn và uy tín giao dịch:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
         return
 
     # --- XỬ LÝ TRONG NHÓM ---
