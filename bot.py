@@ -18,7 +18,7 @@ LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734.838`
+✅ **SỐ TÀI KHOẢN:** `734838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
 📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
 
