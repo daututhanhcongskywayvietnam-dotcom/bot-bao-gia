@@ -1,5 +1,6 @@
 import re 
 import os 
+import json # Thư viện để lưu file
 from threading import Thread
 from flask import Flask
 from datetime import datetime
@@ -18,15 +19,50 @@ LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 NOI_DUNG_CK = """
 ✅ **NGÂN HÀNG:** ACB
 ✅ **CHỦ TÀI KHOẢN:** HO VAN LOI
-✅ **SỐ TÀI KHOẢN:** `734838`
+✅ **SỐ TÀI KHOẢN:** `734.838`
 *(STK chỉ có 6 số - Mọi người lưu ý kỹ)*
-📝 **Nội dung chuyển khoản:** GHI SĐT CỦA BẠN
+📝 **Nội dung chuyển khoản:** GHI SỐ ĐIỆN THOẠI CỦA BẠN
 
 ❌ **TUYỆT ĐỐI KHÔNG GHI:** Mua bán, USD, Tiền hàng...
 📌 **Lưu ý quan trọng:** Chỉ giao dịch tài khoản chính chủ. Người mua chịu trách nhiệm 100% về nguồn tiền nếu xảy ra vấn đề pháp lý.
 """
 
-current_usd_rate = 27.0
+# Tên file để lưu dữ liệu (Bộ nhớ vĩnh viễn)
+DATA_FILE = 'bot_data.json'
+
+# Dữ liệu mặc định (Nếu chưa có file thì dùng cái này)
+default_data = {
+    "current_usd_rate": 27.0,
+    "last_welcome_message_id": None,
+    "last_rate_message_id": None,
+    "last_congrats_message_id": None
+}
+
+# Biến toàn cục chứa dữ liệu
+bot_data = default_data.copy()
+
+# --- HÀM LƯU & ĐỌC FILE (QUAN TRỌNG) ---
+def load_data():
+    """Đọc dữ liệu từ file khi Bot khởi động"""
+    global bot_data
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                bot_data = json.load(f)
+                print("✅ Đã tải dữ liệu cũ thành công!")
+        except Exception as e:
+            print(f"⚠️ Lỗi đọc file: {e}. Dùng mặc định.")
+            bot_data = default_data.copy()
+    else:
+        bot_data = default_data.copy()
+
+def save_data():
+    """Lưu dữ liệu vào file ngay lập tức"""
+    try:
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(bot_data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print(f"⚠️ Không lưu được file: {e}")
 
 # --- DANH SÁCH TỪ KHÓA BỎ QUA ---
 TU_KHOA_BO_QUA = [
@@ -44,11 +80,6 @@ TU_KHOA_HOI_GIA = [
     'đô', 'đô hôm nay', 'gia do', 'xem giá', 'báo giá', 'giá đô'
 ]
 
-# --- CÁC BIẾN LƯU ID TIN NHẮN (ĐỂ TỰ XÓA TIN CŨ) ---
-last_welcome_message_id = None
-last_rate_message_id = None
-last_congrats_message_id = None
-
 # --- SERVER ẢO GIỮ BOT ONLINE ---
 app_flask = Flask('')
 @app_flask.route('/')
@@ -59,9 +90,10 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 # --- LOGIC PHẢN HỒI ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rate = bot_data.get("current_usd_rate", 27.0)
     if update.message.chat.type == "private":
         if update.effective_user.id == ADMIN_ID:
-            await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{current_usd_rate}**.\nSếp cứ nhắn giá mới (VD: `27.5`) em sẽ tự đổi, tự xóa giá cũ và ghim giá mới nhé.", parse_mode='Markdown')
+            await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{rate}**.\nSếp cứ nhắn giá mới (VD: `27.5`) em sẽ tự đổi, tự xóa giá cũ và ghim giá mới nhé.", parse_mode='Markdown')
         else:
             keyboard = [
                 [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
@@ -79,12 +111,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Em đã sẵn sàng phục vụ Sếp!")
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global last_welcome_message_id
-    
-    # 1. Xóa tin chào cũ (nếu có)
-    if last_welcome_message_id:
+    # 1. Xóa tin chào cũ (Lấy ID từ bộ nhớ file)
+    old_welcome_id = bot_data.get("last_welcome_message_id")
+    if old_welcome_id:
         try:
-            await context.bot.delete_message(chat_id=update.message.chat_id, message_id=last_welcome_message_id)
+            await context.bot.delete_message(chat_id=update.message.chat_id, message_id=old_welcome_id)
         except: pass
 
     # 2. Gửi tin chào mới
@@ -101,36 +132,41 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
-        last_welcome_message_id = msg.message_id
+        # 3. Lưu ID mới vào bộ nhớ và GHI RA FILE
+        bot_data["last_welcome_message_id"] = msg.message_id
+        save_data()
 
-# --- TÍNH NĂNG MỚI: TỰ ĐỘNG XÓA THÔNG BÁO RỜI NHÓM ---
+# --- TÍNH NĂNG: TỰ ĐỘNG XÓA THÔNG BÁO RỜI NHÓM ---
 async def delete_left_member_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Ngay lập tức xóa tin nhắn "XYZ left the group"
         await update.message.delete()
     except:
         pass
 
 async def update_rate_logic(context, new_rate):
-    global current_usd_rate, last_rate_message_id
-    current_usd_rate = new_rate
+    # Cập nhật giá vào bộ nhớ
+    bot_data["current_usd_rate"] = new_rate
     
-    if last_rate_message_id:
+    # Xóa tin báo giá cũ (Lấy ID từ file)
+    old_rate_id = bot_data.get("last_rate_message_id")
+    if old_rate_id:
         try:
-            await context.bot.delete_message(chat_id=GROUP_ID, message_id=last_rate_message_id)
+            await context.bot.delete_message(chat_id=GROUP_ID, message_id=old_rate_id)
         except: pass
 
     msg_text = (
         f"📣 **CẬP NHẬT TỶ GIÁ** \n"
         f"-----------------\n"
-        f"💵 Giá USD hiện tại: **{current_usd_rate} VNĐ**\n\n"
+        f"💵 Giá USD hiện tại: **{new_rate} VNĐ**\n\n"
         f"✅ Áp dụng cho mọi giao dịch kể từ thời điểm này.\n\n"
         f"👉 Chúc anh chị em sở hữu được thật nhiều cổ phần nha!"
     )
     sent_msg = await context.bot.send_message(chat_id=GROUP_ID, text=msg_text, parse_mode='Markdown')
     try:
         await sent_msg.pin(disable_notification=False)
-        last_rate_message_id = sent_msg.message_id
+        # Lưu ID tin nhắn ghim mới và GHI RA FILE
+        bot_data["last_rate_message_id"] = sent_msg.message_id
+        save_data()
     except: pass
     return sent_msg
 
@@ -140,19 +176,23 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_val = float(context.args[0].replace(',', '.'))
         new_val = new_val if new_val < 1000 else new_val/1000
         await update_rate_logic(context, new_val)
-        await update.message.reply_text(f"✅ Đã đổi giá và xóa tin cũ: {current_usd_rate}")
+        await update.message.reply_text(f"✅ Đã đổi giá và lưu vào hệ thống: {new_val}")
     except: pass
 
 async def send_congrats(update, context):
-    global last_congrats_message_id
-    if last_congrats_message_id:
+    old_congrats_id = bot_data.get("last_congrats_message_id")
+    if old_congrats_id:
         try:
-            await context.bot.delete_message(chat_id=update.message.chat_id, message_id=last_congrats_message_id)
+            await context.bot.delete_message(chat_id=update.message.chat_id, message_id=old_congrats_id)
         except: pass
     msg = await update.message.reply_text("🎉 **Chúc mừng Sếp sở hữu thêm nhiều tài sản nhé!** 🚀", parse_mode='Markdown')
-    last_congrats_message_id = msg.message_id
+    
+    # Lưu ID chúc mừng và GHI RA FILE
+    bot_data["last_congrats_message_id"] = msg.message_id
+    save_data()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rate = bot_data.get("current_usd_rate", 27.0)
     text = ""
     if update.message.text:
         text = update.message.text
@@ -205,8 +245,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if match:
         amount = int(match.group())
         if amount <= 0: return
-        total_vnd = "{:,.0f}".format(amount * current_usd_rate * 1000).replace(',', '.')
-        rate_display = "{:,.2f}".format(current_usd_rate).replace('.', ',')
+        total_vnd = "{:,.0f}".format(amount * rate * 1000).replace(',', '.')
+        rate_display = "{:,.2f}".format(rate).replace('.', ',')
         resp = f"💵 **BÁO GIÁ NHANH:**\n✅ Số lượng: {amount} $\n✅ Tỷ giá: {rate_display}\n💰 **THÀNH TIỀN: {total_vnd} VNĐ**\n-----------------------------\n{NOI_DUNG_CK}"
         script_dir = os.path.dirname(os.path.abspath(__file__))
         photo_path = os.path.join(script_dir, 'qr.jpg')
@@ -222,17 +262,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 6. HỎI GIÁ
     if any(kw in text for kw in TU_KHOA_HOI_GIA):
-        rate_display = "{:,.2f}".format(current_usd_rate).replace('.', ',')
+        rate_display = "{:,.2f}".format(rate).replace('.', ',')
         msg = (f"ℹ️ Tỷ giá hiện tại là: **{rate_display} VNĐ**\n\n👉 Sếp hãy nhắn **Số lượng cần mua** (VD: `1000`) để em tính tiền nhé!")
         await update.message.reply_text(msg, parse_mode='Markdown')
 
 def main():
+    # Load dữ liệu từ file trước khi bật Bot
+    load_data()
+    
     keep_alive()
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("gia", set_rate_command))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
-    # THÊM DÒNG NÀY ĐỂ XÓA TIN NHẮN NGƯỜI RỜI ĐI
     app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, delete_left_member_message))
     app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, handle_message))
     app.run_polling()
