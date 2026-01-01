@@ -165,7 +165,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Sếp nhắn tỷ giá (ví dụ: `27`) em đổi ngay.", parse_mode='Markdown')
             return
         keyboard = [[InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)]]
-        await update.message.reply_text("⚠️ **THÔNG BÁO**\nMời Sếp vào nhóm chung ạ:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await update.message.reply_text("⛔ **EM KHÔNG BÁO GIÁ RIÊNG SẾP Ạ!**\nEm mời Sếp vào nhóm chung giao dịch để đảm bảo an toàn và uy tín giao dịch::", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
         return
 
     # --- XỬ LÝ TRONG NHÓM ---
