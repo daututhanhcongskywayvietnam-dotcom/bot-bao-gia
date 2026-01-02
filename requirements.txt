@@ -1,3 +1,5 @@
 python-telegram-bot
 Flask
 pytz
+gspread
+oauth2client
