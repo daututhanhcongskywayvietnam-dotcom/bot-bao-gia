@@ -20,9 +20,9 @@ GROUP_ID = -1002946689229
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 # CẤU HÌNH SHEET
-SHEET_NAME = "Dòng Thu USDT - 2026" 
+SHEET_NAME = "Doàng Thu USDT - 2026" 
 WORKSHEET_NAME = "Bán SWC"
-CELL_LUU_GIA = 'K1' # [MỚI] Ô dùng để lưu giá để Bot không bao giờ quên
+CELL_LUU_GIA = 'K1' # Ô lưu tỷ giá vĩnh viễn
 
 # --- TỰ ĐỘNG TÌM KEY ---
 if os.path.exists('/etc/secrets/google_key.json'):
@@ -65,7 +65,7 @@ def get_sheet():
         except: return sh.sheet1
     except: return None
 
-# --- [MỚI] HÀM LƯU & ĐỌC DỮ LIỆU THÔNG MINH ---
+# --- [QUAN TRỌNG] HÀM KHÔI PHỤC TRÍ NHỚ TỪ SHEET ---
 def load_data():
     global bot_data
     # 1. Đọc file JSON (lấy ID tin nhắn cũ)
@@ -76,18 +76,18 @@ def load_data():
         except: bot_data = default_data.copy()
     else: bot_data = default_data.copy()
 
-    # 2. [QUAN TRỌNG] Đọc giá từ Google Sheet (Ô K1) để tránh bị quên
+    # 2. [FIX LỖI QUÊN GIÁ] Đọc giá từ ô K1 Sheet
     try:
         sheet = get_sheet()
         if sheet:
             saved_rate = sheet.acell(CELL_LUU_GIA).value
             if saved_rate:
-                # Chuyển đổi dấu phẩy thành dấu chấm nếu có
+                # Chuyển đổi "27,1" thành 27.1
                 clean_rate = float(saved_rate.replace(',', '.'))
                 bot_data["current_usd_rate"] = clean_rate
                 print(f"✅ Đã khôi phục tỷ giá từ Sheet: {clean_rate}")
     except Exception as e:
-        print(f"⚠️ Không đọc được giá từ Sheet: {e}")
+        print(f"⚠️ Không đọc được giá từ Sheet (Dùng giá cũ): {e}")
 
 def save_data():
     try:
@@ -121,7 +121,7 @@ def ghi_google_sheet(user_name, text_content, current_rate):
         tien_match = re.search(r'\d+', clean)
         so_usd = int(tien_match.group()) if tien_match else 0
 
-        # Nhân 1000 để ra giá VNĐ đúng
+        # Nhân 1000 để ra giá VNĐ đúng (VD: 27.1 -> 27100)
         rate_vnd = current_rate * 1000
 
         col_a = sheet.col_values(1) 
@@ -153,12 +153,11 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rate = bot_data.get("current_usd_rate", 27.0)
     
-    # [ĐÃ SỬA] Thêm nút Tiếng Việt vào tin nhắn riêng
     if update.message.chat.type == "private":
         if update.effective_user.id == ADMIN_ID:
             await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{rate}**.\nSếp nhắn giá mới (VD: `27.5`) em sẽ tự đổi nhé.", parse_mode='Markdown')
         else:
-            # Nếu là khách -> Mời vào nhóm + Nút Tiếng Việt
+            # [ĐÃ SỬA] Thêm nút Cài Tiếng Việt cho Khách
             kb = [
                 [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
                 [InlineKeyboardButton("🇻🇳 CÀI ĐẶT TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]
@@ -187,7 +186,7 @@ async def delete_left_member_message(update: Update, context: ContextTypes.DEFAU
 async def update_rate_logic(context, new_rate):
     bot_data["current_usd_rate"] = new_rate
     
-    # [QUAN TRỌNG] Lưu giá vào Sheet ngay lập tức
+    # [QUAN TRỌNG] Ghi đè giá vào Sheet K1 ngay lập tức
     Thread(target=save_rate_to_sheet_cell, args=(new_rate,)).start()
     
     old_rate_id = bot_data.get("last_rate_message_id")
@@ -239,7 +238,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text: return
     text_lower = text.lower()
 
-    # [ĐÃ SỬA] ƯU TIÊN SỐ 1: KIỂM TRA TIN NHẮN RIÊNG VÀ CHUYỂN HƯỚNG
+    # [ĐÃ SỬA] Xử lý tin nhắn riêng: Thêm nút Tiếng Việt
     if update.message.chat.type == "private":
         if update.effective_user.id == ADMIN_ID:
             clean = text_lower.replace(',', '.')
@@ -253,7 +252,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Sếp nhắn tỷ giá (ví dụ: `27`) em đổi ngay.")
             return
         else:
-            # Logic dành cho KHÁCH -> MỜI VÀO NHÓM + NÚT TIẾNG VIỆT
+            # Khách -> Mời vào nhóm + Nút Tiếng Việt
             kb = [
                 [InlineKeyboardButton("👥 VÀO NHÓM GIAO DỊCH NGAY", url=LINK_NHOM)],
                 [InlineKeyboardButton("🇻🇳 CÀI ĐẶT TIẾNG VIỆT", url="https://t.me/setlanguage/vi-beta")]
@@ -261,14 +260,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⛔ **EM KHÔNG BÁO GIÁ RIÊNG SẾP Ạ!**\nEm mời Sếp vào nhóm chung để đảm bảo an toàn và uy tín giao dịch:", reply_markup=InlineKeyboardMarkup(kb), parse_mode='Markdown')
             return
 
-    # --- CÁC LOGIC DƯỚI ĐÂY CHỈ CHẠY TRONG NHÓM ---
+    # --- LOGIC NHÓM ---
 
+    # 1. Check Keywords Báo Giá (Để đảm bảo không bị mất)
+    if any(kw in text_lower for kw in TU_KHOA_HOI_GIA):
+        rate_display = "{:,.2f}".format(rate).replace('.', ',')
+        msg = (f"ℹ️ Tỷ giá hiện tại là: **{rate_display} VNĐ**\n\n👉 Sếp hãy nhắn **Số lượng cần mua** (VD: `1000`) để em tính tiền nhé!")
+        await update.message.reply_text(msg, parse_mode='Markdown')
+        return
+
+    # 2. Check Bill / Nhân Viên
     if (any(kw in text_lower for kw in TU_KHOA_NHAN_VIEN)) or (has_photo and has_gmail and has_money):
         await send_congrats(update, context, text)
         return
 
     if any(tk in text_lower for tk in TU_KHOA_BO_QUA): return
 
+    # 3. Tính tiền (Báo giá theo số lượng)
     clean = text_lower.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean)
     if match:
@@ -285,11 +293,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else: await update.message.reply_text(resp, parse_mode='Markdown')
         except: await update.message.reply_text(resp, parse_mode='Markdown')
         return
-
-    if any(kw in text_lower for kw in TU_KHOA_HOI_GIA):
-        rate_display = "{:,.2f}".format(rate).replace('.', ',')
-        msg = (f"ℹ️ Tỷ giá hiện tại là: **{rate_display} VNĐ**\n\n👉 Sếp hãy nhắn **Số lượng cần mua** (VD: `1000`) để em tính tiền nhé!")
-        await update.message.reply_text(msg, parse_mode='Markdown')
 
 def main():
     load_data()
