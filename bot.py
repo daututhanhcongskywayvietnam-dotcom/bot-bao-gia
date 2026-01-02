@@ -13,16 +13,16 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- CẤU HÌNH ---
-# >>> HÃY DÁN TOKEN MỚI CỦA BẠN VÀO DÒNG DƯỚI ĐÂY <<<
-TOKEN = '8442263369:AAFuWJk6yM98q8wIZWxkEMzvZ7-hKw9Be_Y' 
+# >>> ĐÂY LÀ TOKEN MỚI CỦA BẠN <<<
+TOKEN = '8442263369:AAH0Frcg3xAFCMYruNUGpsNT79JmOsoYnDA' 
 
 ADMIN_ID = 507318519 
 LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
 GROUP_ID = -1002946689229 
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
-# CẤU HÌNH GOOGLE SHEET
-SHEET_NAME = "Doàng Thu USDT - 2026" 
+# CẤU HÌNH GOOGLE SHEET (Tên chính xác như ảnh bạn gửi)
+SHEET_NAME = "Dòng Thu USDT - 2026" 
 WORKSHEET_NAME = "Bán SWC"
 
 # NỘI DUNG CHUYỂN KHOẢN
@@ -74,9 +74,14 @@ def ghi_google_sheet(user_name, text_content, current_rate):
         creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
         client = gspread.authorize(creds)
         
+        # Mở file lớn
         sh = client.open(SHEET_NAME)
+        
+        # Mở thẻ con "Bán SWC"
         try: sheet = sh.worksheet(WORKSHEET_NAME)
-        except: sheet = sh.sheet1
+        except: 
+            print(f"⚠️ Không thấy thẻ {WORKSHEET_NAME}, dùng thẻ đầu tiên")
+            sheet = sh.sheet1
 
         tz_vn = pytz.timezone('Asia/Ho_Chi_Minh')
         ngay_thang = datetime.now(tz_vn).strftime("%d/%m/%Y")
@@ -97,7 +102,7 @@ def ghi_google_sheet(user_name, text_content, current_rate):
         data = [[ngay_thang, user_name, email_kh, so_usd, current_rate]]
         
         sheet.update(range_name=range_name, values=data)
-        print(f"✅ Ghi xong dòng {next_row}")
+        print(f"✅ Ghi xong dòng {next_row}: {data}")
 
     except Exception as e:
         print(f"❌ Lỗi Sheet: {e}")
