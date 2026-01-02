@@ -76,7 +76,6 @@ def load_data():
         except: bot_data = default_data.copy()
     else: bot_data = default_data.copy()
 
-    # Đọc giá từ Sheet K1
     try:
         sheet = get_sheet()
         if sheet:
@@ -102,7 +101,7 @@ def save_rate_to_sheet_cell(new_rate):
 
 # --- HÀM GHI GIAO DỊCH VÀO SHEET ---
 def ghi_google_sheet(user_name, text_content, current_rate):
-    for i in range(3): # Thử lại 3 lần nếu mạng lỗi
+    for i in range(3): 
         try:
             sheet = get_sheet()
             if not sheet: return
@@ -117,7 +116,6 @@ def ghi_google_sheet(user_name, text_content, current_rate):
             tien_match = re.search(r'\d+', clean)
             so_usd = int(tien_match.group()) if tien_match else 0
 
-            # Nhân 1000 để ghi đúng số tiền VNĐ vào Sheet
             rate_vnd = current_rate * 1000
 
             col_a = sheet.col_values(1) 
@@ -128,7 +126,7 @@ def ghi_google_sheet(user_name, text_content, current_rate):
             data = [[ngay_thang, user_name, email_kh, so_usd, rate_vnd]]
             
             sheet.update(range_name=range_name, values=data)
-            print(f"✅ Đã ghi Sheet dòng {next_row}")
+            print(f"✅ Đã ghi Sheet dòng {next_row}: Khách {user_name}")
             return
         except Exception as e:
             print(f"⚠️ Lỗi ghi Sheet: {e}")
@@ -204,19 +202,27 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except: pass
 
 async def send_congrats(update, context, text_content):
+    # Logic xác định tên khách hàng
+    # Nếu tin nhắn là Reply -> Lấy tên người được Reply (Khách)
+    if update.message.reply_to_message:
+        user_name = update.message.reply_to_message.from_user.first_name
+    else:
+        # Nếu không Reply -> Lấy tên người gửi (Khách tự gửi Bill)
+        user_name = update.effective_user.first_name
+
     old_id = bot_data.get("last_congrats_message_id")
     if old_id:
         try: await context.bot.delete_message(chat_id=update.message.chat_id, message_id=old_id)
         except: pass
+    
     msg = await update.message.reply_text("🎉 **Chúc mừng Sếp sở hữu thêm nhiều tài sản nhé!** 🚀", parse_mode='Markdown')
     
     bot_data["last_congrats_message_id"] = msg.message_id
     save_data()
     
-    user = update.effective_user.first_name
     rate = bot_data.get("current_usd_rate", 27.0)
-    # Ghi sheet khi có giao dịch thành công
-    Thread(target=ghi_google_sheet, args=(user, text_content, rate)).start()
+    # Ghi sheet với tên khách hàng đã xác định được
+    Thread(target=ghi_google_sheet, args=(user_name, text_content, rate)).start()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rate = bot_data.get("current_usd_rate", 27.0)
@@ -224,7 +230,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text: return
     text_lower = text.lower()
 
-    # --- XỬ LÝ TIN NHẮN RIÊNG ---
     if update.message.chat.type == "private":
         if update.effective_user.id == ADMIN_ID:
             clean = text_lower.replace(',', '.')
@@ -244,14 +249,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- XỬ LÝ TRONG NHÓM ---
 
-    # 1. BILL / NHÂN VIÊN XÁC NHẬN (GHI SHEET)
-    if (any(kw in text_lower for kw in TU_KHOA_NHAN_VIEN)) or (bool(update.message.photo) and ("gmail" in text_lower or "@" in text_lower) and re.search(r'\d+', text_lower)):
+    # 1. BILL / NHÂN VIÊN XÁC NHẬN
+    # Điều kiện: (Có từ khóa xác nhận) HOẶC (Có Ảnh + Email + Số tiền)
+    is_confirm = any(kw in text_lower for kw in TU_KHOA_NHAN_VIEN)
+    is_bill = bool(update.message.photo) and ("gmail" in text_lower or "@" in text_lower) and re.search(r'\d+', text_lower)
+
+    if is_confirm or is_bill:
         await send_congrats(update, context, text)
         return
 
     if any(tk in text_lower for tk in TU_KHOA_BO_QUA): return
 
-    # 2. KHÁCH HỎI BÁO GIÁ (GỬI QR & TÍNH TIỀN) - KHÔNG GHI SHEET
+    # 2. KHÁCH HỎI BÁO GIÁ
     clean = text_lower.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean)
     if match:
@@ -263,15 +272,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         resp = f"💵 **BÁO GIÁ NHANH:**\n✅ Số lượng: {amt} $\n✅ Tỷ giá: {rate_dis}\n💰 **THÀNH TIỀN: {total_vnd} VNĐ**\n-----------------------------\n{NOI_DUNG_CK}"
         
-        # Tìm file ảnh QR
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qr.jpg')
         try:
             if os.path.exists(path):
-                # Dùng with open để mở file an toàn
                 with open(path, 'rb') as p:
                     await context.bot.send_photo(chat_id=update.message.chat_id, photo=p, caption=resp, parse_mode='Markdown')
             else:
-                # Nếu không có ảnh thì gửi text
                 await update.message.reply_text(resp, parse_mode='Markdown')
         except: 
             await update.message.reply_text(resp, parse_mode='Markdown')
