@@ -22,7 +22,7 @@ GROUP_ID = -1002946689229
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 # CẤU HÌNH GOOGLE SHEET (Tên chính xác như ảnh bạn gửi)
-SHEET_NAME = "Dòng Thu USDT - 2026" 
+SHEET_NAME = "Doàng Thu USDT - 2026" 
 WORKSHEET_NAME = "Bán SWC"
 
 # NỘI DUNG CHUYỂN KHOẢN
