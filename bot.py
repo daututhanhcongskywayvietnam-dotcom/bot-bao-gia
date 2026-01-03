@@ -21,7 +21,7 @@ GROUP_ID = -1002946689229
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 # CẤU HÌNH SHEET
-SHEET_NAME = "Doàng Thu USDT - 2026" 
+SHEET_NAME = "Dòng Thu USDT - 2026" 
 WORKSHEET_NAME = "Bán SWC"
 CELL_LUU_GIA = 'K1' 
 
