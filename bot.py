@@ -21,7 +21,7 @@ GROUP_ID = -1002946689229
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 # CẤU HÌNH SHEET
-SHEET_NAME = "Dòng Thu USDT - 2026" 
+SHEET_NAME = "Doàng Thu USDT - 2026" 
 WORKSHEET_NAME = "Bán SWC"
 CELL_LUU_GIA = 'K1' 
 
@@ -79,7 +79,6 @@ def load_data():
         except: bot_data = default_data.copy()
     else: bot_data = default_data.copy()
 
-    # Cưỡng chế đọc giá K1 (5 lần)
     print("🔄 Đang tải giá từ Sheet...")
     for i in range(5):
         try:
@@ -108,7 +107,7 @@ def save_rate_to_sheet_cell(new_rate):
         if sheet: sheet.update_acell(CELL_LUU_GIA, str(new_rate).replace('.', ','))
     except: pass
 
-# --- HÀM GHI GIAO DỊCH VÀO SHEET (Đã sửa lỗi tham số) ---
+# --- HÀM GHI GIAO DỊCH VÀO SHEET ---
 def ghi_google_sheet(user_name, text_content, current_rate, cached_email=None, cached_money=None):
     for i in range(3):
         try:
@@ -118,7 +117,7 @@ def ghi_google_sheet(user_name, text_content, current_rate, cached_email=None, c
             tz_vn = pytz.timezone('Asia/Ho_Chi_Minh')
             ngay_thang = datetime.now(tz_vn).strftime("%d/%m/%Y")
             
-            # --- LOGIC TỔNG HỢP THÔNG TIN ---
+            # Xử lý Email
             email_kh = "Thiếu Email"
             if cached_email:
                 email_kh = cached_email
@@ -126,14 +125,15 @@ def ghi_google_sheet(user_name, text_content, current_rate, cached_email=None, c
                 email_match = re.search(r'[\w\.-]+@[\w\.-]+', text_content)
                 if email_match: email_kh = email_match.group()
 
+            # Xử lý Tiền
             so_usd = 0
+            clean = text_content.lower().replace('.', '').replace(',', '')
+            tien_match = re.search(r'\d+', clean)
+            
             if cached_money and cached_money > 0:
                 so_usd = cached_money
-            else:
-                clean = text_content.lower().replace('.', '').replace(',', '')
-                tien_match = re.search(r'\d+', clean)
-                if tien_match and int(tien_match.group()) > 10:
-                    so_usd = int(tien_match.group())
+            elif tien_match and int(tien_match.group()) > 10:
+                so_usd = int(tien_match.group())
 
             rate_vnd = current_rate * 1000
 
@@ -145,7 +145,7 @@ def ghi_google_sheet(user_name, text_content, current_rate, cached_email=None, c
             data = [[ngay_thang, user_name, email_kh, so_usd, rate_vnd]]
             
             sheet.update(range_name=range_name, values=data)
-            print(f"✅ Ghi xong dòng {next_row}: {user_name} | {so_usd}$ | {email_kh}")
+            print(f"✅ Ghi xong dòng {next_row}: {user_name} | {so_usd}$")
             return
         except Exception as e:
             print(f"⚠️ Lỗi ghi Sheet: {e}")
@@ -219,45 +219,42 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Đã đổi giá: {new_val}")
     except: pass
 
+# --- HÀM GỬI CHÚC MỪNG VÀ GHI SHEET (ĐÃ SỬA THỨ TỰ TÊN) ---
 async def send_congrats(update, context, text_content):
-    # 1. Xác định Khách hàng (LẤY FULL HỌ TÊN)
     customer_name = "Khách hàng"
     customer_id = None
     customer_msg = ""
     
     if update.message.reply_to_message:
         original = update.message.reply_to_message
-        # [MỚI] Lấy Full Name (Họ + Tên)
+        # [QUAN TRỌNG] Đổi thứ tự: Họ (Last Name) trước - Tên (First Name) sau
         fname = original.from_user.first_name
         lname = original.from_user.last_name
-        customer_name = f"{fname} {lname}" if lname else fname
+        customer_name = f"{lname} {fname}" if lname else fname
         
         customer_id = original.from_user.id
         customer_msg = original.text or original.caption or ""
     else:
-        # [MỚI] Lấy Full Name người gửi
+        # Tự gửi cũng đổi thứ tự
         fname = update.effective_user.first_name
         lname = update.effective_user.last_name
-        customer_name = f"{fname} {lname}" if lname else fname
+        customer_name = f"{lname} {fname}" if lname else fname
         
         customer_id = update.effective_user.id
         customer_msg = text_content
 
-    # 2. Truy xuất Cache
+    # Lấy Cache
     cached_email = None
     cached_money = None
-    
     if customer_id and customer_id in user_info_cache:
         cached_email = user_info_cache[customer_id].get('email')
         cached_money = user_info_cache[customer_id].get('money')
 
-    # 3. Tổng hợp thông tin
+    # Tổng hợp thông tin
     combined_text = f"{text_content} {customer_msg}".lower()
     email_match = re.search(r'[\w\.-]+@[\w\.-]+', combined_text)
     
-    if cached_email: final_email = cached_email
-    elif email_match: final_email = email_match.group()
-    else: final_email = "..."
+    final_email = cached_email if cached_email else (email_match.group() if email_match else "...")
 
     clean_msg = combined_text.replace('.', '').replace(',', '')
     money_match = re.search(r'\d+', clean_msg)
@@ -268,7 +265,7 @@ async def send_congrats(update, context, text_content):
     elif money_match and int(money_match.group()) > 10:
         final_money = money_match.group()
 
-    # 4. Gửi Báo Cáo
+    # Gửi Báo Cáo
     tz_vn = pytz.timezone('Asia/Ho_Chi_Minh')
     time_str = datetime.now(tz_vn).strftime("%H:%M - %d/%m/%Y")
 
@@ -292,7 +289,7 @@ async def send_congrats(update, context, text_content):
     bot_data["last_congrats_message_id"] = msg.message_id
     save_data()
     
-    # 5. GHI SHEET
+    # Ghi Sheet
     rate = bot_data.get("current_usd_rate", 27.0)
     money_int = 0
     if final_money != "...": money_int = int(final_money)
