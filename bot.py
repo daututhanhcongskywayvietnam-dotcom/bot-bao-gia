@@ -1,6 +1,6 @@
-import re
-import os
-import json
+import re 
+import os 
+import json 
 import time
 from threading import Thread
 from flask import Flask
@@ -14,19 +14,19 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- CẤU HÌNH ---
-TOKEN = '8442263369:AAH0Frcg3xAFCMYruNUGpsNT79JmOsoYnDA'
-ADMIN_ID = 507318519
-LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1"
-GROUP_ID = -1002946689229
+TOKEN = '8442263369:AAH0Frcg3xAFCMYruNUGpsNT79JmOsoYnDA' 
+ADMIN_ID = 507318519 
+LINK_NHOM = "https://t.me/+3VybdCszC1NmNTQ1" 
+GROUP_ID = -1002946689229 
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 # CẤU HÌNH SHEET
-SHEET_NAME = "Dòng Thu USDT - 2026"
+SHEET_NAME = "Doàng Thu USDT - 2026" 
 WORKSHEET_NAME = "Bán SWC"
-CELL_LUU_GIA = 'K1'
+CELL_LUU_GIA = 'K1' 
 
-# --- [QUAN TRỌNG] BỘ NHỚ TẠM THÔNG MINH ---
-user_info_cache = {}
+# --- BỘ NHỚ TẠM THÔNG MINH ---
+user_info_cache = {} 
 
 # --- TỰ ĐỘNG TÌM KEY ---
 if os.path.exists('/etc/secrets/google_key.json'):
@@ -108,7 +108,7 @@ def save_rate_to_sheet_cell(new_rate):
         if sheet: sheet.update_acell(CELL_LUU_GIA, str(new_rate).replace('.', ','))
     except: pass
 
-# --- HÀM GHI GIAO DỊCH VÀO SHEET (FULL CACHE) ---
+# --- HÀM GHI GIAO DỊCH VÀO SHEET (Đã sửa lỗi tham số) ---
 def ghi_google_sheet(user_name, text_content, current_rate, cached_email=None, cached_money=None):
     for i in range(3):
         try:
@@ -220,18 +220,26 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except: pass
 
 async def send_congrats(update, context, text_content):
-    # 1. Xác định Khách hàng
+    # 1. Xác định Khách hàng (LẤY FULL HỌ TÊN)
     customer_name = "Khách hàng"
     customer_id = None
     customer_msg = ""
     
     if update.message.reply_to_message:
         original = update.message.reply_to_message
-        customer_name = original.from_user.first_name
+        # [MỚI] Lấy Full Name (Họ + Tên)
+        fname = original.from_user.first_name
+        lname = original.from_user.last_name
+        customer_name = f"{fname} {lname}" if lname else fname
+        
         customer_id = original.from_user.id
         customer_msg = original.text or original.caption or ""
     else:
-        customer_name = update.effective_user.first_name
+        # [MỚI] Lấy Full Name người gửi
+        fname = update.effective_user.first_name
+        lname = update.effective_user.last_name
+        customer_name = f"{fname} {lname}" if lname else fname
+        
         customer_id = update.effective_user.id
         customer_msg = text_content
 
