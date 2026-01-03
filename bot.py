@@ -202,27 +202,57 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except: pass
 
 async def send_congrats(update, context, text_content):
-    # Logic xác định tên khách hàng
-    # Nếu tin nhắn là Reply -> Lấy tên người được Reply (Khách)
+    # 1. Xác định thông tin Khách hàng
+    customer_name = "Khách hàng"
+    customer_msg = ""
+    
     if update.message.reply_to_message:
-        user_name = update.message.reply_to_message.from_user.first_name
+        # Nếu Reply -> Lấy thông tin từ tin nhắn gốc của khách
+        original_msg = update.message.reply_to_message
+        customer_name = original_msg.from_user.first_name
+        customer_msg = original_msg.text or original_msg.caption or ""
     else:
-        # Nếu không Reply -> Lấy tên người gửi (Khách tự gửi Bill)
-        user_name = update.effective_user.first_name
+        # Nếu khách tự gửi -> Lấy từ tin nhắn hiện tại
+        customer_name = update.effective_user.first_name
+        customer_msg = text_content
 
+    # 2. Trích xuất Email và Số tiền từ tin nhắn của khách (nếu có)
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+', customer_msg)
+    email_kh = email_match.group() if email_match else "Chưa rõ"
+
+    clean_msg = customer_msg.lower().replace('.', '').replace(',', '')
+    money_match = re.search(r'\d+', clean_msg)
+    money_usd = money_match.group() if money_match else "..."
+
+    # 3. Tạo câu chúc mừng chi tiết
+    tz_vn = pytz.timezone('Asia/Ho_Chi_Minh')
+    time_str = datetime.now(tz_vn).strftime("%H:%M - %d/%m/%Y")
+
+    congrats_text = (
+        f"🎉 **GIAO DỊCH THÀNH CÔNG!** 🚀\n"
+        f"--------------------------\n"
+        f"⏰ **Thời gian:** {time_str}\n"
+        f"👤 **Người nhận:** {customer_name}\n"
+        f"💵 **Số lượng:** {money_usd} USD\n"
+        f"📧 **Email:** {email_kh}\n"
+        f"--------------------------\n"
+        f"❤️ Chúc mừng Sếp {customer_name} đã sở hữu thêm nhiều tài sản giá trị! 💎"
+    )
+
+    # 4. Xóa tin cũ và Gửi tin mới
     old_id = bot_data.get("last_congrats_message_id")
     if old_id:
         try: await context.bot.delete_message(chat_id=update.message.chat_id, message_id=old_id)
         except: pass
     
-    msg = await update.message.reply_text("🎉 **Chúc mừng Sếp sở hữu thêm nhiều tài sản nhé!** 🚀", parse_mode='Markdown')
-    
+    msg = await update.message.reply_text(congrats_text, parse_mode='Markdown')
     bot_data["last_congrats_message_id"] = msg.message_id
     save_data()
     
+    # 5. Ghi Sheet
     rate = bot_data.get("current_usd_rate", 27.0)
-    # Ghi sheet với tên khách hàng đã xác định được
-    Thread(target=ghi_google_sheet, args=(user_name, text_content, rate)).start()
+    # Lưu ý: Truyền text_content của khách (customer_msg) để hàm ghi sheet trích xuất lại chính xác
+    Thread(target=ghi_google_sheet, args=(customer_name, customer_msg, rate)).start()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rate = bot_data.get("current_usd_rate", 27.0)
@@ -250,12 +280,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- XỬ LÝ TRONG NHÓM ---
 
     # 1. BILL / NHÂN VIÊN XÁC NHẬN
-    # Điều kiện: (Có từ khóa xác nhận) HOẶC (Có Ảnh + Email + Số tiền)
     is_confirm = any(kw in text_lower for kw in TU_KHOA_NHAN_VIEN)
     is_bill = bool(update.message.photo) and ("gmail" in text_lower or "@" in text_lower) and re.search(r'\d+', text_lower)
 
     if is_confirm or is_bill:
-        await send_congrats(update, context, text)
+        await send_congrats(update, context, text) # Truyền text để xử lý
         return
 
     if any(tk in text_lower for tk in TU_KHOA_BO_QUA): return
