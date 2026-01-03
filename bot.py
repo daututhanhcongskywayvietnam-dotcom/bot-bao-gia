@@ -21,9 +21,12 @@ GROUP_ID = -1002946689229
 LINK_CHANNEL = "https://t.me/unitsky_group_viet_nam"
 
 # CẤU HÌNH SHEET
-SHEET_NAME = "Dòng Thu USDT - 2026" 
+SHEET_NAME = "Doàng Thu USDT - 2026" 
 WORKSHEET_NAME = "Bán SWC"
 CELL_LUU_GIA = 'K1' 
+
+# --- BỘ NHỚ TẠM (Để xử lý tin nhắn rời rạc) ---
+user_info_cache = {} 
 
 # --- TỰ ĐỘNG TÌM KEY ---
 if os.path.exists('/etc/secrets/google_key.json'):
@@ -66,7 +69,7 @@ def get_sheet():
         except: return sh.sheet1
     except: return None
 
-# --- HÀM LƯU & ĐỌC DỮ LIỆU ---
+# --- HÀM LƯU & ĐỌC DỮ LIỆU (Cưỡng chế đọc K1) ---
 def load_data():
     global bot_data
     if os.path.exists(DATA_FILE):
@@ -76,15 +79,22 @@ def load_data():
         except: bot_data = default_data.copy()
     else: bot_data = default_data.copy()
 
-    try:
-        sheet = get_sheet()
-        if sheet:
-            saved_rate = sheet.acell(CELL_LUU_GIA).value
-            if saved_rate:
-                clean_rate = float(saved_rate.replace(',', '.'))
-                bot_data["current_usd_rate"] = clean_rate
-                print(f"✅ Đã khôi phục tỷ giá: {clean_rate}")
-    except: pass
+    # Thử kết nối Sheet 5 lần để lấy giá K1
+    print("🔄 Đang tải giá từ Sheet...")
+    for i in range(5):
+        try:
+            sheet = get_sheet()
+            if sheet:
+                saved_rate = sheet.acell(CELL_LUU_GIA).value
+                if saved_rate:
+                    clean_rate = float(saved_rate.replace(',', '.'))
+                    bot_data["current_usd_rate"] = clean_rate
+                    print(f"✅ Đã khôi phục tỷ giá thành công: {clean_rate}")
+                    return # Thành công thì thoát luôn
+        except Exception as e:
+            print(f"⚠️ Lỗi đọc giá (Lần {i+1}): {e}")
+            time.sleep(2)
+    print("❌ Không đọc được giá từ Sheet, dùng giá cũ/mặc định.")
 
 def save_data():
     try:
@@ -99,8 +109,8 @@ def save_rate_to_sheet_cell(new_rate):
         if sheet: sheet.update_acell(CELL_LUU_GIA, str(new_rate).replace('.', ','))
     except: pass
 
-# --- HÀM GHI GIAO DỊCH VÀO SHEET ---
-def ghi_google_sheet(user_name, text_content, current_rate):
+# --- HÀM GHI GIAO DỊCH VÀO SHEET (Có hỗ trợ Cache) ---
+def ghi_google_sheet(user_name, text_content, current_rate, cached_email=None, cached_money=None):
     for i in range(3): 
         try:
             sheet = get_sheet()
@@ -109,13 +119,26 @@ def ghi_google_sheet(user_name, text_content, current_rate):
             tz_vn = pytz.timezone('Asia/Ho_Chi_Minh')
             ngay_thang = datetime.now(tz_vn).strftime("%d/%m/%Y")
             
+            # Xử lý Email (Ưu tiên tin nhắn hiện tại -> Cache)
             email_match = re.search(r'[\w\.-]+@[\w\.-]+', text_content)
-            email_kh = email_match.group() if email_match else "Thiếu Email"
+            if email_match:
+                email_kh = email_match.group()
+            elif cached_email:
+                email_kh = cached_email
+            else:
+                email_kh = "Thiếu Email"
 
+            # Xử lý Tiền (Ưu tiên tin nhắn hiện tại -> Cache)
             clean = text_content.lower().replace('.', '').replace(',', '')
             tien_match = re.search(r'\d+', clean)
-            so_usd = int(tien_match.group()) if tien_match else 0
+            
+            so_usd = 0
+            if tien_match and int(tien_match.group()) > 10:
+                so_usd = int(tien_match.group())
+            elif cached_money:
+                so_usd = cached_money
 
+            # Nhân 1000 để ra VNĐ
             rate_vnd = current_rate * 1000
 
             col_a = sheet.col_values(1) 
@@ -126,7 +149,7 @@ def ghi_google_sheet(user_name, text_content, current_rate):
             data = [[ngay_thang, user_name, email_kh, so_usd, rate_vnd]]
             
             sheet.update(range_name=range_name, values=data)
-            print(f"✅ Đã ghi Sheet dòng {next_row}: Khách {user_name}")
+            print(f"✅ Đã ghi Sheet dòng {next_row}: {user_name} - {so_usd}$")
             return
         except Exception as e:
             print(f"⚠️ Lỗi ghi Sheet: {e}")
@@ -147,7 +170,6 @@ def keep_alive(): t = Thread(target=run_http); t.start()
 # --- LOGIC ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rate = bot_data.get("current_usd_rate", 27.0)
-    
     if update.message.chat.type == "private":
         if update.effective_user.id == ADMIN_ID:
             await update.message.reply_text(f"🫡 Chào Sếp! Giá hiện tại: **{rate}**.\nSếp nhắn giá mới (VD: `27.5`) em sẽ tự đổi nhé.", parse_mode='Markdown')
@@ -202,33 +224,41 @@ async def set_rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except: pass
 
 async def send_congrats(update, context, text_content):
-    # 1. Xác định thông tin Khách hàng
+    # 1. Xác định khách hàng & Cache
     customer_name = "Khách hàng"
-    customer_msg = ""
+    cached_email = None
+    cached_money = None
     
     if update.message.reply_to_message:
-        # Nếu Reply -> Lấy thông tin từ tin nhắn gốc của khách
-        original_msg = update.message.reply_to_message
-        customer_name = original_msg.from_user.first_name
-        customer_msg = original_msg.text or original_msg.caption or ""
+        original = update.message.reply_to_message
+        customer_name = original.from_user.first_name
+        customer_id = original.from_user.id
+        # Lấy nội dung tin nhắn gốc của khách
+        original_text = original.text or original.caption or ""
+        # Gộp nội dung tin nhắn gốc vào text_content để tìm kiếm cho dễ
+        text_content = f"{text_content} {original_text}"
+        
+        # Lấy từ Cache nếu có
+        if customer_id in user_info_cache:
+            cached_email = user_info_cache[customer_id].get('email')
+            cached_money = user_info_cache[customer_id].get('money')
     else:
-        # Nếu khách tự gửi -> Lấy từ tin nhắn hiện tại
         customer_name = update.effective_user.first_name
-        customer_msg = text_content
 
-    # 2. Trích xuất Email và Số tiền
-    # MẸO: Bot sẽ tìm trong cả tin nhắn của Khách (customer_msg) VÀ tin nhắn của Nhân viên (text_content)
-    # Để phòng trường hợp nhân viên gõ bổ sung thông tin
-    combined_text = f"{customer_msg} {text_content}"
+    # 2. Tìm thông tin để hiển thị
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+', text_content)
+    display_email = email_match.group() if email_match else (cached_email or "...")
     
-    email_match = re.search(r'[\w\.-]+@[\w\.-]+', combined_text)
-    email_kh = email_match.group() if email_match else "..."
-
-    clean_msg = combined_text.lower().replace('.', '').replace(',', '')
+    clean_msg = text_content.lower().replace('.', '').replace(',', '')
     money_match = re.search(r'\d+', clean_msg)
-    money_usd = money_match.group() if money_match else "..."
+    
+    display_money = "..."
+    if money_match and int(money_match.group()) > 10:
+        display_money = money_match.group()
+    elif cached_money:
+        display_money = str(cached_money)
 
-    # 3. Tạo câu chúc mừng
+    # 3. Tạo câu chúc
     tz_vn = pytz.timezone('Asia/Ho_Chi_Minh')
     time_str = datetime.now(tz_vn).strftime("%H:%M - %d/%m/%Y")
 
@@ -237,8 +267,8 @@ async def send_congrats(update, context, text_content):
         f"--------------------------\n"
         f"⏰ **Thời gian:** {time_str}\n"
         f"👤 **Người nhận:** {customer_name}\n"
-        f"💵 **Số lượng:** {money_usd} USD\n"
-        f"📧 **Email:** {email_kh}\n"
+        f"💵 **Số lượng:** {display_money} USD\n"
+        f"📧 **Email:** {display_email}\n"
         f"--------------------------\n"
         f"❤️ Chúc mừng Sếp {customer_name} đã sở hữu thêm nhiều tài sản giá trị! 💎"
     )
@@ -252,9 +282,9 @@ async def send_congrats(update, context, text_content):
     bot_data["last_congrats_message_id"] = msg.message_id
     save_data()
     
-    # 4. Ghi Sheet (Truyền combined_text để hàm ghi sheet lọc lại lần nữa cho chắc)
+    # 4. Ghi Sheet (Truyền đủ tham số Cache)
     rate = bot_data.get("current_usd_rate", 27.0)
-    Thread(target=ghi_google_sheet, args=(customer_name, combined_text, rate)).start()
+    Thread(target=ghi_google_sheet, args=(customer_name, text_content, rate, cached_email, cached_money)).start()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rate = bot_data.get("current_usd_rate", 27.0)
@@ -281,19 +311,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- XỬ LÝ TRONG NHÓM ---
 
-    # 1. NHÂN VIÊN XÁC NHẬN (Ưu tiên số 1)
-    if any(kw in text_lower for kw in TU_KHOA_NHAN_VIEN):
+    # [MỚI] THU THẬP THÔNG TIN VÀO CACHE
+    user_id = update.effective_user.id
+    if user_id not in user_info_cache: user_info_cache[user_id] = {}
+    
+    email_found = re.search(r'[\w\.-]+@[\w\.-]+', text_lower)
+    if email_found: user_info_cache[user_id]['email'] = email_found.group()
+        
+    clean_money = text_lower.replace('.', '').replace(',', '')
+    money_found = re.search(r'\d+', clean_money)
+    if money_found and int(money_found.group()) > 10:
+        user_info_cache[user_id]['money'] = int(money_found.group())
+
+    # 1. BILL / NHÂN VIÊN XÁC NHẬN
+    is_confirm = any(kw in text_lower for kw in TU_KHOA_NHAN_VIEN)
+    is_bill = bool(update.message.photo) and ("gmail" in text_lower or "@" in text_lower) and re.search(r'\d+', text_lower)
+
+    if is_confirm or is_bill:
         await send_congrats(update, context, text)
         return
 
     if any(tk in text_lower for tk in TU_KHOA_BO_QUA): return
 
-    # 2. KHÁCH HỎI BÁO GIÁ (GỬI QR)
+    # 2. KHÁCH HỎI BÁO GIÁ
     clean = text_lower.replace('.', '').replace(',', '')
     match = re.search(r'\d+', clean)
     if match:
         amt = int(match.group())
-        if amt < 10: return # Bỏ qua số nhỏ để tránh nhầm
+        if amt < 10: return 
         
         total_vnd = "{:,.0f}".format(amt * rate * 1000).replace(',', '.')
         rate_dis = "{:,.2f}".format(rate).replace('.', ',')
@@ -303,15 +348,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qr.jpg')
         try:
             if os.path.exists(path):
-                with open(path, 'rb') as p:
-                    await context.bot.send_photo(chat_id=update.message.chat_id, photo=p, caption=resp, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(resp, parse_mode='Markdown')
-        except: 
-            await update.message.reply_text(resp, parse_mode='Markdown')
+                with open(path, 'rb') as p: await context.bot.send_photo(chat_id=update.message.chat_id, photo=p, caption=resp, parse_mode='Markdown')
+            else: await update.message.reply_text(resp, parse_mode='Markdown')
+        except: await update.message.reply_text(resp, parse_mode='Markdown')
         return
 
-    # 3. HỎI GIÁ (TEXT)
+    # 3. HỎI GIÁ
     if any(kw in text_lower for kw in TU_KHOA_HOI_GIA):
         rate_dis = "{:,.2f}".format(rate).replace('.', ',')
         await update.message.reply_text(f"ℹ️ Tỷ giá hiện tại là: **{rate_dis} VNĐ**\n👉 Sếp hãy nhắn **Số lượng cần mua** (VD: `1000`) để em tính tiền nhé!", parse_mode='Markdown')
